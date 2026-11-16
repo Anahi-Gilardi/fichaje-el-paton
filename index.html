@@ -1,0 +1,3421 @@
+<!DOCTYPE html>
+<html lang="es-AR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>El Patrón · Fichaje de Personal</title>
+  <link rel="icon" type="image/png" href="logo.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-page: #f3eee8;
+      --sidebar-top: #94653f;
+      --sidebar-bottom: #7c5130;
+      --dark-espresso: #1a100a;
+      --copper: #d9a05f;
+      --copper-light: #ebd0af;
+      --banner-1: #8f6338;
+      --banner-2: #b98046;
+      --banner-3: #5b3d22;
+      --card-bg: #ffffff;
+      --text-main: #1f140d;
+      --text-muted: #6e5a4b;
+      --border-soft: rgba(148, 101, 63, 0.16);
+      --green-main: #15803d;
+      --green-hover: #166534;
+      --green-soft: #dcfce7;
+      --red-main: #b91c1c;
+      --red-hover: #991b1b;
+      --red-soft: #fee2e2;
+      --amber-soft: #fef3c7;
+      --amber-text: #92400e;
+      --shadow-card: 0 10px 30px rgba(35, 20, 8, 0.06), 0 2px 6px rgba(35, 20, 8, 0.04);
+      --shadow-banner: 0 16px 36px rgba(91, 61, 34, 0.22);
+      --radius-card: 22px;
+      --radius-banner: 28px;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html, body {
+      min-height: 100vh;
+      background-color: var(--bg-page);
+      color: var(--text-main);
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    button, input, select {
+      font-family: inherit;
+    }
+
+    /* ==========================================================================
+       COMPONENTES DE LOGO CON FALLBACK A 🐎
+       ========================================================================== */
+    .logo-wrap {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: #f4ebe2;
+      overflow: hidden;
+      flex-shrink: 0;
+      user-select: none;
+      padding: 6px;
+    }
+
+    .logo-wrap img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      display: block;
+      border-radius: 50%;
+    }
+
+    .logo-wrap .logo-fallback {
+      display: none;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      height: 100%;
+      line-height: 1;
+    }
+
+    .logo-wrap.is-fallback img {
+      display: none;
+    }
+
+    .logo-wrap.is-fallback .logo-fallback {
+      display: flex;
+    }
+
+    /* ==========================================================================
+       PANTALLA DE LOGIN
+       ========================================================================== */
+    .login-screen {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      background:
+        radial-gradient(circle at 15% 20%, rgba(185, 128, 70, 0.16), transparent 45%),
+        radial-gradient(circle at 85% 80%, rgba(124, 81, 48, 0.18), transparent 45%),
+        var(--bg-page);
+    }
+
+    .login-card {
+      width: 100%;
+      max-width: 430px;
+      background: var(--card-bg);
+      border-radius: var(--radius-card);
+      box-shadow: 0 20px 50px rgba(26, 16, 10, 0.12);
+      border: 1px solid var(--border-soft);
+      overflow: hidden;
+    }
+
+    .login-card-header {
+      background: linear-gradient(135deg, var(--banner-1) 0%, var(--banner-2) 50%, var(--banner-3) 100%);
+      padding: 32px 28px 26px;
+      text-align: center;
+      color: #ffffff;
+      position: relative;
+    }
+
+    .login-logo-outer {
+      position: relative;
+      width: 86px;
+      height: 86px;
+      margin: 0 auto 14px;
+    }
+
+    .login-logo-circle {
+      width: 86px;
+      height: 86px;
+      border-radius: 50%;
+      border: 4px solid #ffffff;
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.25);
+      font-size: 40px;
+      background: #f8f3ee;
+    }
+
+    .login-status-dot {
+      position: absolute;
+      bottom: 4px;
+      right: 4px;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: #22c55e;
+      border: 2.5px solid #ffffff;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+    }
+
+    .login-card-header h1 {
+      font-size: 25px;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      margin-bottom: 4px;
+    }
+
+    .login-subtitle-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 6px;
+      padding: 4px 12px;
+      border-radius: 999px;
+      background: rgba(26, 16, 10, 0.35);
+      border: 1px solid rgba(255, 255, 255, 0.22);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: #fdf8f3;
+    }
+
+    .login-card-body {
+      padding: 28px;
+    }
+
+    .form-group {
+      margin-bottom: 18px;
+    }
+
+    .form-label {
+      display: block;
+      font-size: 13px;
+      font-weight: 600;
+      color: #3b281a;
+      margin-bottom: 7px;
+    }
+
+    .form-input, .form-select {
+      width: 100%;
+      padding: 12px 15px;
+      border-radius: 13px;
+      border: 1.5px solid #dfd3c7;
+      background: #fcfaf7;
+      color: var(--text-main);
+      font-size: 15px;
+      transition: all 0.18s ease;
+      outline: none;
+    }
+
+    .form-input:focus, .form-select:focus {
+      border-color: var(--sidebar-top);
+      background: #ffffff;
+      box-shadow: 0 0 0 3px rgba(148, 101, 63, 0.16);
+    }
+
+    .pin-input {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 20px;
+      letter-spacing: 0.25em;
+      text-align: center;
+      font-weight: 700;
+    }
+
+    .btn-primary {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      background: var(--dark-espresso);
+      color: var(--copper);
+      border: 1px solid rgba(217, 160, 95, 0.25);
+      padding: 13px 22px;
+      border-radius: 14px;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.18s ease;
+      box-shadow: 0 4px 12px rgba(26, 16, 10, 0.18);
+    }
+
+    .btn-primary:hover:not(:disabled) {
+      background: #281910;
+      color: #e7b374;
+      transform: translateY(-1px);
+    }
+
+    .btn-primary:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .btn-block {
+      width: 100%;
+    }
+
+    .btn-secondary {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      background: #f3ece4;
+      color: #3d2817;
+      border: 1px solid #dccab8;
+      padding: 10px 16px;
+      border-radius: 12px;
+      font-size: 13.5px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.16s ease;
+    }
+
+    .btn-secondary:hover:not(:disabled) {
+      background: #e8ddd1;
+    }
+
+    .login-footer-links {
+      margin-top: 20px;
+      padding-top: 16px;
+      border-top: 1px solid #efe7de;
+      display: flex;
+       flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      text-align: center;
+    }
+
+    .link-config {
+      background: none;
+      border: none;
+      color: #7c5130;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      text-decoration: underline;
+      text-underline-offset: 3px;
+    }
+
+    .link-config:hover {
+      color: var(--dark-espresso);
+    }
+
+    .connection-pill {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      background: #f5efe8;
+      color: #6b5340;
+      border: 1px solid #e4d6c8;
+    }
+
+    /* ==========================================================================
+       LAYOUT PRINCIPAL (SIDEBAR 250px + CONTENIDO)
+       ========================================================================== */
+    .app-layout {
+      display: flex;
+      min-height: 100vh;
+    }
+
+    .sidebar {
+      width: 250px;
+      min-width: 250px;
+      background: linear-gradient(180deg, var(--sidebar-top) 0%, var(--sidebar-bottom) 100%);
+      display: flex;
+      flex-direction: column;
+      border-right: 1px solid rgba(26, 16, 10, 0.16);
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      z-index: 30;
+      user-select: none;
+    }
+
+    /* Header del Sidebar idéntico a la captura */
+    .sidebar-brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 22px 18px 20px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.14);
+    }
+
+    .sidebar-logo-box {
+      position: relative;
+      width: 46px;
+      height: 46px;
+      flex-shrink: 0;
+    }
+
+    .sidebar-logo-circle {
+      width: 46px;
+      height: 46px;
+      border-radius: 50%;
+      background: #f4ebe2;
+      border: 2.5px solid #ffffff;
+      box-shadow: 0 3px 10px rgba(0, 0, 0, 0.18);
+      font-size: 22px;
+      padding: 3px;
+    }
+
+    .sidebar-logo-dot {
+      position: absolute;
+      bottom: 0px;
+      right: 0px;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: #22c55e;
+      border: 2px solid #ffffff;
+    }
+
+    .sidebar-brand-text {
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+    }
+
+    .sidebar-brand-title {
+      font-size: 17px;
+      font-weight: 800;
+      color: #140c07;
+      letter-spacing: -0.02em;
+      line-height: 1.15;
+    }
+
+    .sidebar-brand-sub {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      margin-top: 3px;
+      font-size: 9.5px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: #24160d;
+      opacity: 0.88;
+      white-space: nowrap;
+    }
+
+    .sidebar-sub-green-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #22c55e;
+      box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.28);
+      flex-shrink: 0;
+    }
+
+    /* Navegación del Sidebar */
+    .sidebar-nav {
+      padding: 18px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      flex: 1;
+    }
+
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      width: 100%;
+      padding: 12px 15px;
+      border-radius: 14px;
+      border: none;
+      background: transparent;
+      color: #1c110a;
+      font-size: 14.5px;
+      font-weight: 600;
+      text-align: left;
+      cursor: pointer;
+      transition: all 0.16s ease;
+    }
+
+    .nav-item:hover {
+      background: rgba(26, 16, 10, 0.12);
+    }
+
+    .nav-item .nav-emoji {
+      font-size: 17px;
+      width: 22px;
+      text-align: center;
+      flex-shrink: 0;
+    }
+
+    .nav-item .nav-label {
+      flex: 1;
+    }
+
+    .nav-item .nav-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--copper);
+      opacity: 0;
+      transform: scale(0.5);
+      transition: all 0.16s ease;
+    }
+
+    .nav-item.active {
+      background: var(--dark-espresso);
+      color: var(--copper);
+      box-shadow: 0 6px 16px rgba(15, 9, 5, 0.28);
+    }
+
+    .nav-item.active .nav-dot {
+      opacity: 1;
+      transform: scale(1);
+    }
+
+    /* Footer del Sidebar */
+    .sidebar-footer {
+      padding: 14px 14px 18px;
+      border-top: 1px solid rgba(255, 255, 255, 0.14);
+      background: rgba(26, 16, 10, 0.12);
+    }
+
+    .sidebar-user-box {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 10px;
+      padding: 4px 4px;
+    }
+
+    .sidebar-user-info {
+      min-width: 0;
+    }
+
+    .sidebar-user-name {
+      font-size: 13.5px;
+      font-weight: 700;
+      color: #fff8f0;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .sidebar-user-role {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--copper-light);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .btn-logout {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 9px 12px;
+      border-radius: 11px;
+      border: 1px solid rgba(26, 16, 10, 0.3);
+      background: rgba(26, 16, 10, 0.45);
+      color: #f9ece0;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .btn-logout:hover {
+      background: var(--dark-espresso);
+      color: var(--copper);
+    }
+
+    /* ==========================================================================
+       CONTENIDO PRINCIPAL Y BANNER SUPERIOR
+       ========================================================================== */
+    .main-area {
+      flex: 1;
+      min-width: 0;
+      padding: 22px 28px 44px;
+      max-width: 1360px;
+      margin: 0 auto;
+      width: 100%;
+    }
+
+    .hero-banner {
+      border-radius: var(--radius-banner);
+      background: linear-gradient(132deg, var(--banner-1) 0%, var(--banner-2) 48%, var(--banner-3) 100%);
+      padding: 32px 38px;
+      color: #ffffff;
+      display: flex;
+      align-items: center;
+      gap: 28px;
+      box-shadow: var(--shadow-banner);
+      margin-bottom: 26px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .hero-banner::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(115deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0) 45%, rgba(0,0,0,0.12) 100%);
+      pointer-events: none;
+    }
+
+    .hero-logo-circle {
+      width: 116px;
+      height: 116px;
+      border-radius: 50%;
+      border: 6px solid #ffffff;
+      background: #f4ebe2;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.25);
+      font-size: 54px;
+      padding: 8px;
+      z-index: 1;
+    }
+
+    .hero-content {
+      flex: 1;
+      z-index: 1;
+      min-width: 0;
+    }
+
+    .hero-title {
+      font-size: 36px;
+      font-weight: 800;
+      letter-spacing: -0.025em;
+      line-height: 1.15;
+      margin-bottom: 10px;
+      color: #ffffff;
+      text-shadow: 0 2px 10px rgba(0, 0, 0, 0.14);
+    }
+
+    .hero-desc {
+      font-size: 16px;
+      font-weight: 500;
+      line-height: 1.5;
+      color: rgba(255, 248, 240, 0.92);
+      max-width: 680px;
+      margin-bottom: 16px;
+    }
+
+    .hero-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 7px 16px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.16);
+      border: 1px solid rgba(255, 255, 255, 0.24);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      font-weight: 600;
+      color: #ffffff;
+      backdrop-filter: blur(4px);
+    }
+
+    /* ==========================================================================
+       CARDS, GRIDS Y BOTONES DE ACCIÓN
+       ========================================================================== */
+    .view-section {
+      display: none;
+      animation: fadeIn 0.2s ease;
+    }
+
+    .view-section.active {
+      display: block;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 22px;
+      margin-bottom: 22px;
+    }
+
+    .grid-3 {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 18px;
+      margin-bottom: 22px;
+    }
+
+    .card {
+      background: var(--card-bg);
+      border-radius: var(--radius-card);
+      box-shadow: var(--shadow-card);
+      border: 1px solid var(--border-soft);
+      padding: 24px 26px;
+      margin-bottom: 22px;
+    }
+
+    .card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 18px;
+      flex-wrap: wrap;
+    }
+
+    .card-title {
+      font-size: 18px;
+      font-weight: 800;
+      color: var(--dark-espresso);
+      display: flex;
+      align-items: center;
+      gap: 9px;
+    }
+
+    .card-subtitle {
+      font-size: 13px;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    /* Reloj en vivo y panel de Fichar */
+    .clock-card {
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    .live-clock-time {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 46px;
+      font-weight: 700;
+      color: var(--dark-espresso);
+      letter-spacing: -0.03em;
+      line-height: 1.05;
+      margin: 8px 0 6px;
+    }
+
+    .live-clock-date {
+      font-size: 14.5px;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: capitalize;
+    }
+
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 7px 14px;
+      border-radius: 999px;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+    }
+
+    .status-badge.in-shift {
+      background: var(--green-soft);
+      color: #14532d;
+      border: 1px solid #86efac;
+    }
+
+    .status-badge.out-shift {
+      background: #f3ece4;
+      color: #5c4433;
+      border: 1px solid #dfd2c5;
+    }
+
+    .status-pulse {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: currentColor;
+    }
+
+    .status-badge.in-shift .status-pulse {
+      background: #16a34a;
+      box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.25);
+      animation: pulseDot 1.6s infinite;
+    }
+
+    @keyframes pulseDot {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.22); opacity: 0.75; }
+    }
+
+    .timer-box {
+      background: #faf6f2;
+      border: 1px solid #e7dcd0;
+      border-radius: 16px;
+      padding: 14px 18px;
+      margin-top: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .timer-label {
+      font-size: 12.5px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-muted);
+    }
+
+    .timer-value {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 26px;
+      font-weight: 700;
+      color: var(--dark-espresso);
+    }
+
+    /* Botones grandes de INGRESO / EGRESO */
+    .fichaje-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-top: 18px;
+    }
+
+    .btn-fichaje {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 22px 18px;
+      border-radius: 18px;
+      border: none;
+      font-size: 18px;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      color: #ffffff;
+      cursor: pointer;
+      transition: all 0.18s ease;
+    }
+
+    .btn-fichaje span.btn-sub {
+      font-size: 12px;
+      font-weight: 500;
+      opacity: 0.9;
+      letter-spacing: 0;
+    }
+
+    .btn-ingreso {
+      background: linear-gradient(145deg, #16a34a, var(--green-main));
+      box-shadow: 0 10px 22px rgba(21, 128, 61, 0.25);
+    }
+
+    .btn-ingreso:hover:not(:disabled) {
+      background: linear-gradient(145deg, #15803d, var(--green-hover));
+      transform: translateY(-2px);
+    }
+
+    .btn-egreso {
+      background: linear-gradient(145deg, #dc2626, var(--red-main));
+      box-shadow: 0 10px 22px rgba(185, 28, 28, 0.25);
+    }
+
+    .btn-egreso:hover:not(:disabled) {
+      background: linear-gradient(145deg, #b91c1c, var(--red-hover));
+      transform: translateY(-2px);
+    }
+
+    .btn-fichaje:disabled {
+      opacity: 0.36;
+      cursor: not-allowed;
+      box-shadow: none;
+      transform: none;
+      filter: grayscale(35%);
+    }
+
+    /* KPI / Resumen Cards */
+    .stat-card {
+      background: #faf6f2;
+      border: 1px solid #e7dcd0;
+      border-radius: 18px;
+      padding: 16px 20px;
+    }
+
+    .stat-label {
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+    }
+
+    .stat-value {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 26px;
+      font-weight: 700;
+      color: var(--dark-espresso);
+    }
+
+    .stat-note {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-top: 3px;
+    }
+
+    /* Tablas */
+    .table-wrap {
+      width: 100%;
+      overflow-x: auto;
+      border-radius: 14px;
+      border: 1px solid #ebe1d6;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+      font-size: 14px;
+    }
+
+    thead th {
+      background: #f7f1ea;
+      color: #463120;
+      font-weight: 700;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      padding: 13px 16px;
+      border-bottom: 1px solid #e6d9cb;
+      white-space: nowrap;
+    }
+
+    tbody td {
+      padding: 13px 16px;
+      border-bottom: 1px solid #f1e9df;
+      color: var(--text-main);
+      vertical-align: middle;
+    }
+
+    tbody tr:last-child td {
+      border-bottom: none;
+    }
+
+    tbody tr:hover td {
+      background: #fcf9f5;
+    }
+
+    .mono {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 13px;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 11.5px;
+      font-weight: 700;
+      letter-spacing: 0.03em;
+    }
+
+    .pill-open {
+      background: var(--amber-soft);
+      color: var(--amber-text);
+    }
+
+    .pill-closed {
+      background: var(--green-soft);
+      color: #166534;
+    }
+
+    .pill-inactive {
+      background: var(--red-soft);
+      color: #991b1b;
+    }
+
+    .pill-role {
+      background: #efe6dc;
+      color: #4e3420;
+    }
+
+    /* Barra de filtros */
+    .filter-bar {
+      display: flex;
+      align-items: flex-end;
+      gap: 14px;
+      flex-wrap: wrap;
+      background: #faf6f2;
+      padding: 16px 18px;
+      border-radius: 16px;
+      border: 1px solid #e8ddd1;
+      margin-bottom: 20px;
+    }
+
+    .filter-item {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      min-width: 160px;
+    }
+
+    .filter-item label {
+      font-size: 12px;
+      font-weight: 700;
+      color: #4e3726;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    /* Alertas / Mensajes */
+    .alert-box {
+      padding: 12px 16px;
+      border-radius: 13px;
+      font-size: 13.5px;
+      font-weight: 600;
+      margin-bottom: 16px;
+      display: none;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .alert-box.show {
+      display: flex;
+    }
+
+    .alert-error {
+      background: var(--red-soft);
+      color: #991b1b;
+      border: 1px solid #fca5a5;
+    }
+
+    .alert-success {
+      background: var(--green-soft);
+      color: #14532d;
+      border: 1px solid #86efac;
+    }
+
+    .alert-warning {
+      background: var(--amber-soft);
+      color: var(--amber-text);
+      border: 1px solid #fcd34d;
+    }
+
+    /* Toast flotante */
+    .toast-container {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      z-index: 9999;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      max-width: 380px;
+    }
+
+    .toast {
+      background: var(--dark-espresso);
+      color: #fff;
+      border-left: 4px solid var(--copper);
+      padding: 14px 18px;
+      border-radius: 14px;
+      box-shadow: 0 12px 30px rgba(0, 0, 0, 0.25);
+      font-size: 14px;
+      font-weight: 600;
+      animation: fadeIn 0.2s ease;
+    }
+
+    .toast.error {
+      border-left-color: #ef4444;
+    }
+
+    .toast.success {
+      border-left-color: #22c55e;
+    }
+
+    /* Modal */
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(20, 12, 6, 0.55);
+      backdrop-filter: blur(3px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      z-index: 1000;
+    }
+
+    .modal-backdrop.open {
+      display: flex;
+    }
+
+    .modal-card {
+      background: var(--card-bg);
+      border-radius: var(--radius-card);
+      max-width: 480px;
+      width: 100%;
+      padding: 26px;
+      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.3);
+      border: 1px solid var(--border-soft);
+    }
+
+    .modal-title {
+      font-size: 19px;
+      font-weight: 800;
+      color: var(--dark-espresso);
+      margin-bottom: 8px;
+    }
+
+    .modal-desc {
+      font-size: 13.5px;
+      color: var(--text-muted);
+      margin-bottom: 18px;
+      line-height: 1.45;
+    }
+
+    .modal-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      margin-top: 20px;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 32px 16px;
+      color: var(--text-muted);
+      font-size: 14px;
+    }
+
+    .action-btn-group {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+
+    .btn-xs {
+      padding: 6px 11px;
+      font-size: 12px;
+      border-radius: 9px;
+      font-weight: 700;
+      cursor: pointer;
+      border: 1px solid transparent;
+      transition: all 0.15s ease;
+    }
+
+    .btn-xs-copper {
+      background: var(--dark-espresso);
+      color: var(--copper);
+    }
+
+    .btn-xs-copper:hover {
+      background: #2b1b11;
+    }
+
+    .btn-xs-outline {
+      background: #f6efe7;
+      color: #46301f;
+      border-color: #d9c8b6;
+    }
+
+    .btn-xs-outline:hover {
+      background: #eadfce;
+    }
+
+    .btn-xs-danger {
+      background: var(--red-soft);
+      color: var(--red-main);
+      border-color: #fca5a5;
+    }
+
+    .btn-xs-danger:hover {
+      background: #fecaca;
+    }
+
+    /* ==========================================================================
+       RESPONSIVE: CELULAR Y TABLET (SIDEBAR PASA ARRIBA HORIZONTAL)
+       ========================================================================== */
+    @media (max-width: 900px) {
+      .app-layout {
+        flex-direction: column;
+      }
+
+      .sidebar {
+        width: 100%;
+        min-width: 100%;
+        height: auto;
+        position: sticky;
+        top: 0;
+        border-right: none;
+        border-bottom: 1px solid rgba(26, 16, 10, 0.2);
+      }
+
+      .sidebar-brand {
+        padding: 12px 16px;
+        justify-content: space-between;
+      }
+
+      .sidebar-nav {
+        flex-direction: row;
+        overflow-x: auto;
+        padding: 10px 12px;
+        gap: 8px;
+      }
+
+      .nav-item {
+        width: auto;
+        white-space: nowrap;
+        padding: 9px 14px;
+        font-size: 13.5px;
+        flex-shrink: 0;
+      }
+
+      .nav-item .nav-dot {
+        margin-left: 4px;
+      }
+
+      .sidebar-footer {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 8px 16px;
+        gap: 12px;
+      }
+
+      .sidebar-user-box {
+        margin-bottom: 0;
+      }
+
+      .btn-logout {
+        width: auto;
+        padding: 7px 14px;
+      }
+
+      .main-area {
+        padding: 16px 14px 36px;
+      }
+
+      .hero-banner {
+        flex-direction: column;
+        text-align: center;
+        padding: 24px 20px;
+        gap: 16px;
+      }
+
+      .hero-logo-circle {
+        width: 88px;
+        height: 88px;
+        font-size: 42px;
+      }
+
+      .hero-title {
+        font-size: 26px;
+      }
+
+      .hero-desc {
+        font-size: 14px;
+      }
+
+      .grid-2, .grid-3 {
+        grid-template-columns: 1fr;
+      }
+
+      .fichaje-actions {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ========================================================================
+       PANTALLA DE LOGIN
+       ======================================================================== -->
+  <section id="loginScreen" class="login-screen">
+    <div class="login-card">
+      <div class="login-card-header">
+        <div class="login-logo-outer">
+          <div class="logo-wrap login-logo-circle">
+            <img src="logo.png" alt="Logo El Patrón" onerror="this.parentElement.classList.add('is-fallback')" />
+            <span class="logo-fallback" aria-hidden="true">🐎</span>
+          </div>
+          <span class="login-status-dot" title="Sistema activo"></span>
+        </div>
+        <h1>El Patrón</h1>
+        <div class="login-subtitle-chip">
+          <span>●</span> FICHAJE · GOOGLE SHEETS
+        </div>
+      </div>
+
+      <div class="login-card-body">
+        <div id="loginAlert" class="alert-box alert-error" role="alert"></div>
+
+        <form id="loginForm" autocomplete="off">
+          <div class="form-group">
+            <label class="form-label" for="loginUsuario">Usuario</label>
+            <input
+              type="text"
+              id="loginUsuario"
+              class="form-input"
+              placeholder="Ej: dueno"
+              required
+              autocomplete="username"
+            />
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="loginPin">PIN numérico (4 a 8 dígitos)</label>
+            <input
+              type="password"
+              id="loginPin"
+              class="form-input pin-input"
+              placeholder="••••"
+              inputmode="numeric"
+              pattern="[0-9]{4,8}"
+              minlength="4"
+              maxlength="8"
+              required
+              autocomplete="current-password"
+            />
+          </div>
+
+          <button type="submit" id="btnLoginSubmit" class="btn-primary btn-block">
+            <span>Ingresar al sistema</span>
+          </button>
+        </form>
+
+        <div class="login-footer-links" id="loginConfigContainer">
+          <button type="button" id="btnOpenConfig" class="link-config">
+            ⚙️ Configurar conexión
+          </button>
+          <span id="connectionStatusPill" class="connection-pill"></span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ========================================================================
+       APLICACIÓN PRINCIPAL
+       ======================================================================== -->
+  <div id="appLayout" class="app-layout" style="display: none;">
+    <!-- SIDEBAR IZQUIERDO 250px -->
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <div class="sidebar-logo-box">
+          <div class="logo-wrap sidebar-logo-circle">
+            <img src="logo.png" alt="El Patrón" onerror="this.parentElement.classList.add('is-fallback')" />
+            <span class="logo-fallback" aria-hidden="true">🐎</span>
+          </div>
+          <span class="sidebar-logo-dot"></span>
+        </div>
+        <div class="sidebar-brand-text">
+          <div class="sidebar-brand-title">El Patrón</div>
+          <div class="sidebar-brand-sub">
+            <span class="sidebar-sub-green-dot"></span>
+            <span>FICHAJE · GOOGLE SHEETS</span>
+          </div>
+        </div>
+      </div>
+
+      <nav class="sidebar-nav" aria-label="Menú principal">
+        <button type="button" class="nav-item active" data-view="fichar">
+          <span class="nav-emoji">🕒</span>
+          <span class="nav-label">Fichar</span>
+          <span class="nav-dot"></span>
+        </button>
+
+        <button type="button" class="nav-item owner-only" data-view="empleados" style="display: none;">
+          <span class="nav-emoji">👥</span>
+          <span class="nav-label">Empleados</span>
+          <span class="nav-dot"></span>
+        </button>
+
+        <button type="button" class="nav-item" data-view="miCuenta">
+          <span class="nav-emoji">🔐</span>
+          <span class="nav-label">Mi cuenta</span>
+          <span class="nav-dot"></span>
+        </button>
+      </nav>
+
+      <div class="sidebar-footer">
+        <div class="sidebar-user-box">
+          <div class="sidebar-user-info">
+            <div id="sidebarUserName" class="sidebar-user-name">—</div>
+            <div id="sidebarUserRole" class="sidebar-user-role">—</div>
+          </div>
+        </div>
+        <button type="button" id="btnLogout" class="btn-logout">
+          <span>🚪</span>
+          <span>Cerrar sesión</span>
+        </button>
+      </div>
+    </aside>
+
+    <!-- ÁREA PRINCIPAL -->
+    <main class="main-area">
+      <!-- BANNER SUPERIOR COBRE -->
+      <header class="hero-banner">
+        <div class="logo-wrap hero-logo-circle">
+          <img src="logo.png" alt="El Patrón" onerror="this.parentElement.classList.add('is-fallback')" />
+          <span class="logo-fallback" aria-hidden="true">🐎</span>
+        </div>
+        <div class="hero-content">
+          <h1 id="heroWelcomeTitle" class="hero-title">Bienvenido a El Patrón</h1>
+          <p class="hero-desc">
+            Sistema integral de control de horarios y asistencia de personal de alta precisión, sincronizado en tiempo real con Google Sheets.
+          </p>
+          <div id="heroTerminalChip" class="hero-chip">
+            Estación Principal Fichaje · Córdoba, AR
+          </div>
+        </div>
+      </header>
+
+      <!-- ====================================================================
+           VISTA 1: FICHAR
+           ==================================================================== -->
+      <section id="view-fichar" class="view-section active">
+        <div class="grid-2">
+          <!-- Reloj en vivo + Estado actual -->
+          <div class="card clock-card" style="margin-bottom: 0;">
+            <div>
+              <div class="card-header" style="margin-bottom: 8px;">
+                <div>
+                  <div class="card-title">🕰️ Reloj Oficial</div>
+                  <div class="card-subtitle">Zona horaria: América / Argentina / Córdoba</div>
+                </div>
+                <div id="shiftStatusBadge" class="status-badge out-shift">
+                  <span class="status-pulse"></span>
+                  <span id="shiftStatusText">Fuera de turno</span>
+                </div>
+              </div>
+
+              <div id="liveClockTime" class="live-clock-time">--:--:--</div>
+              <div id="liveClockDate" class="live-clock-date">Cargando fecha...</div>
+            </div>
+
+            <div class="timer-box">
+              <div>
+                <div class="timer-label">Tiempo en turno actual</div>
+                <div id="shiftSinceNote" class="stat-note">Sin ingreso abierto</div>
+              </div>
+              <div id="shiftStopwatch" class="timer-value">00:00:00</div>
+            </div>
+          </div>
+
+          <!-- Panel de Botones INGRESO y EGRESO -->
+          <div class="card" style="margin-bottom: 0;">
+            <div class="card-header" style="margin-bottom: 6px;">
+              <div>
+                <div class="card-title">⚡ Registrar Fichaje</div>
+                <div class="card-subtitle">Marcá tu entrada al iniciar la jornada y tu salida al retirarte</div>
+              </div>
+            </div>
+
+            <div id="ficharFeedback" class="alert-box"></div>
+
+            <div class="fichaje-actions">
+              <button type="button" id="btnMarcarIngreso" class="btn-fichaje btn-ingreso">
+                <span>🟢 INGRESO</span>
+                <span class="btn-sub">Iniciar jornada</span>
+              </button>
+
+              <button type="button" id="btnMarcarEgreso" class="btn-fichaje btn-egreso" disabled>
+                <span>🔴 EGRESO</span>
+                <span class="btn-sub">Finalizar jornada</span>
+              </button>
+            </div>
+
+            <div style="margin-top: 16px; display: flex; align-items: center; justify-content: space-between; font-size: 12.5px; color: var(--text-muted);">
+              <span>🔒 Protección activa contra doble fichaje</span>
+              <button type="button" id="btnRefreshEstado" class="btn-secondary" style="padding: 6px 12px; font-size: 12px;">
+                🔄 Actualizar estado
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Lista de fichajes de hoy -->
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <div class="card-title">📋 Mis fichajes de hoy</div>
+              <div class="card-subtitle" id="todaySubtitle">Movimientos registrados en la jornada actual</div>
+            </div>
+            <div class="stat-card" style="padding: 10px 16px;">
+              <span class="stat-label" style="margin-right: 8px;">Total de hoy:</span>
+              <span id="todayTotalHHMM" class="mono" style="font-size: 16px; font-weight: 800; color: var(--dark-espresso);">00:00 hs</span>
+              <span id="todayTotalDec" class="mono" style="font-size: 13px; color: var(--text-muted); margin-left: 6px;">(0,00 h)</span>
+            </div>
+          </div>
+
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Fecha</th>
+                  <th>Ingreso</th>
+                  <th>Egreso</th>
+                  <th>Duración</th>
+                  <th>Horas (decimal)</th>
+                  <th>Estado</th>
+                </tr>
+              </thead>
+              <tbody id="todayTableBody">
+                <tr>
+                  <td colspan="6" class="empty-state">Cargando fichajes de hoy...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ====================================================================
+           VISTA 2: MIS HORAS
+           ==================================================================== -->
+      <section id="view-misHoras" class="view-section">
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <div class="card-title">📅 Historial de Mis Horas</div>
+              <div class="card-subtitle">Consultá tus turnos trabajados y el acumulado del período seleccionado</div>
+            </div>
+          </div>
+
+          <form id="misHorasFilterForm" class="filter-bar">
+            <div class="filter-item">
+              <label for="misHorasDesde">Desde</label>
+              <input type="date" id="misHorasDesde" class="form-input" required />
+            </div>
+            <div class="filter-item">
+              <label for="misHorasHasta">Hasta</label>
+              <input type="date" id="misHorasHasta" class="form-input" required />
+            </div>
+            <button type="submit" class="btn-primary">
+              🔍 Filtrar período
+            </button>
+          </form>
+
+          <div class="grid-3">
+            <div class="stat-card">
+              <div class="stat-label">Total Horas (HH:MM)</div>
+              <div id="misHorasTotalHHMM" class="stat-value">00:00</div>
+              <div class="stat-note">Duración acumulada en turnos cerrados</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">Total en Decimal</div>
+              <div id="misHorasTotalDec" class="stat-value">0,00 h</div>
+              <div class="stat-note">Para liquidación de horas</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">Turnos Registrados</div>
+              <div id="misHorasCount" class="stat-value">0</div>
+              <div class="stat-note">Fichajes dentro del rango</div>
+            </div>
+          </div>
+
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Fecha</th>
+                  <th>Ingreso</th>
+                  <th>Egreso</th>
+                  <th>Duración (hh:mm)</th>
+                  <th>Horas decimal</th>
+                  <th>Estado</th>
+                </tr>
+              </thead>
+              <tbody id="misHorasTableBody">
+                <tr>
+                  <td colspan="6" class="empty-state">Seleccioná un rango de fechas para ver tus horas.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ====================================================================
+           VISTA 3: EMPLEADOS (SOLO DUEÑO)
+           ==================================================================== -->
+      <section id="view-empleados" class="view-section">
+        <div class="grid-2">
+          <!-- Quién está adentro ahora -->
+          <div class="card" style="margin-bottom: 0;">
+            <div class="card-header">
+              <div>
+                <div class="card-title">🟢 En turno ahora mismo</div>
+                <div class="card-subtitle">Personal que marcó entrada y todavía no marcó salida</div>
+              </div>
+              <button type="button" id="btnRefreshEmpleados" class="btn-secondary">
+                🔄 Actualizar
+              </button>
+            </div>
+            <div id="adentroAhoraContainer">
+              <div class="empty-state">Nadie está en turno en este momento.</div>
+            </div>
+          </div>
+
+          <!-- Crear nuevo empleado -->
+          <div class="card" style="margin-bottom: 0;">
+            <div class="card-header">
+              <div>
+                <div class="card-title">➕ Nuevo Empleado</div>
+                <div class="card-subtitle">Creá una cuenta para que pueda fichar con su usuario y PIN</div>
+              </div>
+            </div>
+
+            <div id="crearEmpleadoAlert" class="alert-box"></div>
+
+            <form id="crearEmpleadoForm" autocomplete="off">
+              <div class="form-group">
+                <label class="form-label" for="empNombre">Nombre y Apellido</label>
+                <input type="text" id="empNombre" class="form-input" placeholder="Ej: Martín Gómez" required />
+              </div>
+
+              <div class="grid-2" style="margin-bottom: 0; gap: 14px;">
+                <div class="form-group">
+                  <label class="form-label" for="empUsuario">Usuario</label>
+                  <input type="text" id="empUsuario" class="form-input" placeholder="Ej: martin" required />
+                </div>
+                <div class="form-group">
+                  <label class="form-label" for="empPin">PIN inicial (4 a 8 dígitos)</label>
+                  <input
+                    type="password"
+                    id="empPin"
+                    class="form-input mono"
+                    placeholder="1234"
+                    inputmode="numeric"
+                    pattern="[0-9]{4,8}"
+                    minlength="4"
+                    maxlength="8"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label" for="empRol">Rol en el sistema</label>
+                <select id="empRol" class="form-select">
+                  <option value="empleado">Empleado (Fichar y Mi cuenta)</option>
+                  <option value="dueño">Dueño (Acceso total + Gestión de Empleados)</option>
+                </select>
+              </div>
+
+              <button type="submit" id="btnCrearEmpleadoSubmit" class="btn-primary btn-block">
+                ➕ Crear empleado
+              </button>
+            </form>
+          </div>
+        </div>
+
+        <!-- Nómina completa de empleados -->
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <div class="card-title">👥 Nómina de Empleados</div>
+              <div class="card-subtitle">Habilitá o deshabilitá accesos, cambiá el PIN o forzá el egreso si alguien se olvidó de marcar salida</div>
+            </div>
+          </div>
+
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Nombre</th>
+                  <th>Usuario</th>
+                  <th>Rol</th>
+                  <th>Estado Cuenta</th>
+                  <th>Turno Actual</th>
+                  <th>Acciones</th>
+                </tr>
+              </thead>
+              <tbody id="empleadosTableBody">
+                <tr>
+                  <td colspan="6" class="empty-state">Cargando empleados...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ====================================================================
+           VISTA 4: REPORTE (SOLO DUEÑO)
+           ==================================================================== -->
+      <section id="view-reporte" class="view-section">
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <div class="card-title">📊 Reporte General de Horas</div>
+              <div class="card-subtitle">Filtrá por período y empleado, revisá los totales y exportá a Excel (CSV argentino)</div>
+            </div>
+            <button type="button" id="btnDescargarCSV" class="btn-primary">
+              📥 Descargar CSV (Excel)
+            </button>
+          </div>
+
+          <form id="reporteFilterForm" class="filter-bar">
+            <div class="filter-item">
+              <label for="repDesde">Desde</label>
+              <input type="date" id="repDesde" class="form-input" required />
+            </div>
+            <div class="filter-item">
+              <label for="repHasta">Hasta</label>
+              <input type="date" id="repHasta" class="form-input" required />
+            </div>
+            <div class="filter-item" style="min-width: 220px;">
+              <label for="repEmpleado">Empleado</label>
+              <select id="repEmpleado" class="form-select">
+                <option value="todos">Todos los empleados</option>
+              </select>
+            </div>
+            <button type="submit" class="btn-primary">
+              🔍 Aplicar filtro
+            </button>
+          </form>
+
+          <div class="grid-3">
+            <div class="stat-card">
+              <div class="stat-label">Total Horas Período (HH:MM)</div>
+              <div id="repTotalHHMM" class="stat-value">00:00</div>
+              <div class="stat-note">Suma de todos los turnos cerrados</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">Total Horas (Decimal)</div>
+              <div id="repTotalDec" class="stat-value">0,00 h</div>
+              <div class="stat-note">Ideal para cálculo de sueldos</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">Fichajes en el Período</div>
+              <div id="repTotalTurnos" class="stat-value">0</div>
+              <div class="stat-note">Registros encontrados</div>
+            </div>
+          </div>
+
+          <!-- Resumen agrupado por empleado -->
+          <h3 style="font-size: 15px; font-weight: 800; color: var(--dark-espresso); margin: 20px 0 12px;">
+            📌 Resumen de horas por empleado
+          </h3>
+          <div class="table-wrap" style="margin-bottom: 26px;">
+            <table>
+              <thead>
+                <tr>
+                  <th>Empleado</th>
+                  <th>Usuario</th>
+                  <th>Turnos Cerrados</th>
+                  <th>Turnos Abiertos</th>
+                  <th>Duración Total (hh:mm)</th>
+                  <th>Horas Totales (decimal)</th>
+                </tr>
+              </thead>
+              <tbody id="repResumenBody">
+                <tr>
+                  <td colspan="6" class="empty-state">Sin datos para mostrar.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Detalle de fichajes -->
+          <h3 style="font-size: 15px; font-weight: 800; color: var(--dark-espresso); margin: 10px 0 12px;">
+            📑 Detalle de fichajes del período
+          </h3>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Fecha</th>
+                  <th>Empleado</th>
+                  <th>Usuario</th>
+                  <th>Ingreso</th>
+                  <th>Egreso</th>
+                  <th>Duración (hh:mm)</th>
+                  <th>Horas decimal</th>
+                  <th>Estado</th>
+                </tr>
+              </thead>
+              <tbody id="repDetalleBody">
+                <tr>
+                  <td colspan="8" class="empty-state">Sin fichajes en el período seleccionado.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ====================================================================
+           VISTA 5: MI CUENTA
+           ==================================================================== -->
+      <section id="view-miCuenta" class="view-section">
+        <div class="card" style="max-width: 540px;">
+          <div class="card-header">
+            <div>
+              <div class="card-title">🔐 Cambiar mi PIN</div>
+              <div class="card-subtitle">Elegí un nuevo PIN numérico de 4 a 8 dígitos para ingresar al sistema</div>
+            </div>
+          </div>
+
+          <div id="cambiarPinAlert" class="alert-box"></div>
+
+          <form id="cambiarPinForm" autocomplete="off">
+            <div class="form-group">
+              <label class="form-label" for="pinActualInput">PIN actual</label>
+              <input
+                type="password"
+                id="pinActualInput"
+                class="form-input pin-input"
+                placeholder="••••"
+                inputmode="numeric"
+                pattern="[0-9]{4,8}"
+                minlength="4"
+                maxlength="8"
+                required
+              />
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="pinNuevoInput">Nuevo PIN (4 a 8 dígitos)</label>
+              <input
+                type="password"
+                id="pinNuevoInput"
+                class="form-input pin-input"
+                placeholder="••••"
+                inputmode="numeric"
+                pattern="[0-9]{4,8}"
+                minlength="4"
+                maxlength="8"
+                required
+              />
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="pinConfirmInput">Confirmar nuevo PIN</label>
+              <input
+                type="password"
+                id="pinConfirmInput"
+                class="form-input pin-input"
+                placeholder="••••"
+                inputmode="numeric"
+                pattern="[0-9]{4,8}"
+                minlength="4"
+                maxlength="8"
+                required
+              />
+            </div>
+
+            <button type="submit" id="btnCambiarPinSubmit" class="btn-primary">
+              💾 Actualizar mi PIN
+            </button>
+          </form>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- ========================================================================
+       MODAL: CONFIGURAR CONEXIÓN APPS SCRIPT
+       ======================================================================== -->
+  <div id="modalConfig" class="modal-backdrop">
+    <div class="modal-card">
+      <div class="modal-title">⚙️ Configurar conexión con Google Sheets</div>
+      <p class="modal-desc">
+        Pegá la URL de tu implementación de Google Apps Script (debe terminar en <code>/exec</code>).
+        Si la dejás vacía, el sistema funcionará en <strong>Modo Local de prueba</strong> en este navegador.
+      </p>
+      <div id="configModalAlert" class="alert-box alert-error"></div>
+      <div class="form-group">
+        <label class="form-label" for="inputApiUrl">URL del Web App de Google Apps Script</label>
+        <input
+          type="url"
+          id="inputApiUrl"
+          class="form-input mono"
+          placeholder="https://script.google.com/macros/s/.../exec"
+        />
+      </div>
+      <div class="modal-actions">
+        <button type="button" id="btnUseLocalDemo" class="btn-secondary">
+          Usar modo local
+        </button>
+        <button type="button" id="btnCloseConfig" class="btn-secondary">
+          Cancelar
+        </button>
+        <button type="button" id="btnSaveConfig" class="btn-primary">
+          Guardar conexión
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================================================
+       MODAL: CAMBIAR PIN DE EMPLEADO (SOLO DUEÑO)
+       ======================================================================== -->
+  <div id="modalResetPin" class="modal-backdrop">
+    <div class="modal-card">
+      <div class="modal-title">🔑 Cambiar PIN de empleado</div>
+      <p id="resetPinDesc" class="modal-desc">Ingresá el nuevo PIN numérico (4 a 8 dígitos).</p>
+      <form id="resetPinForm">
+        <input type="hidden" id="resetPinUsuario" />
+        <div class="form-group">
+          <label class="form-label" for="resetPinInput">Nuevo PIN (4 a 8 dígitos)</label>
+          <input
+            type="password"
+            id="resetPinInput"
+            class="form-input pin-input"
+            placeholder="••••"
+            inputmode="numeric"
+            pattern="[0-9]{4,8}"
+            minlength="4"
+            maxlength="8"
+            required
+          />
+        </div>
+        <div class="modal-actions">
+          <button type="button" id="btnCancelResetPin" class="btn-secondary">Cancelar</button>
+          <button type="submit" class="btn-primary">Guardar nuevo PIN</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ========================================================================
+       MODAL: FORZAR EGRESO DE EMPLEADO (SOLO DUEÑO)
+       ======================================================================== -->
+  <div id="modalForzarEgreso" class="modal-backdrop">
+    <div class="modal-card">
+      <div class="modal-title">🛑 Forzar egreso de turno abierto</div>
+      <p id="forzarEgresoDesc" class="modal-desc">
+        Si el empleado se olvidó de marcar la salida, podés cerrarle el turno indicando la hora de salida (o dejarla vacía para usar la hora actual).
+      </p>
+      <form id="forzarEgresoForm">
+        <input type="hidden" id="forzarEgresoUsuario" />
+        <div class="form-group">
+          <label class="form-label" for="forzarEgresoHora">Hora de salida (opcional, formato HH:MM)</label>
+          <input
+            type="time"
+            id="forzarEgresoHora"
+            class="form-input mono"
+          />
+          <div class="stat-note" style="margin-top: 6px;">
+            Dejá este campo en blanco si querés registrar la salida con la hora actual de Córdoba.
+          </div>
+        </div>
+        <div class="modal-actions">
+          <button type="button" id="btnCancelForzarEgreso" class="btn-secondary">Cancelar</button>
+          <button type="submit" class="btn-primary">Confirmar egreso forzado</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Contenedor de notificaciones Toast -->
+  <div id="toastContainer" class="toast-container"></div>
+
+  <!-- ========================================================================
+       SCRIPT PRINCIPAL (CONEXIÓN + SEGURIDAD + MODO LOCAL + UI)
+       ======================================================================== -->
+  <script>
+    /**
+     * URL del Web App de Google Apps Script (termina en /exec).
+     * Si se deja vacía (""), el login muestra el enlace "Configurar conexión"
+     * que guarda la URL en localStorage.
+     */
+    const API_URL = "https://script.google.com/macros/s/AKfycbwdNb2lCU3o1AFb85ZAlXdGtEAtSyMD4u7HN66GZmuKQdg_0v_dWmOvm1KYoK9HycaGqg/exec";
+
+    const TZ = "America/Argentina/Cordoba";
+    const STORAGE_KEY_API_URL = "el_patron_fichaje_api_url";
+    const STORAGE_KEY_SESSION = "el_patron_fichaje_session_token";
+    const STORAGE_KEY_USER = "el_patron_fichaje_session_user";
+    const STORAGE_KEY_LOCKOUT = "el_patron_fichaje_login_lockout";
+    const STORAGE_KEY_LOCAL_DB = "el_patron_fichaje_local_db_v1";
+    const LOCAL_SALT = "EL_PATRON_FICHAJE_SALT_2026_CBA_AR_#94653f";
+
+    // Estado en memoria del cliente
+    const state = {
+      token: sessionStorage.getItem(STORAGE_KEY_SESSION) || "",
+      usuario: null,
+      enTurno: false,
+      turnoAbierto: null,
+      fichajesHoy: [],
+      reporteActual: {
+        desde: "",
+        hasta: "",
+        resumenPorEmpleado: [],
+        fichajes: []
+      },
+      actionLock: false
+    };
+
+    try {
+      const savedUser = sessionStorage.getItem(STORAGE_KEY_USER);
+      if (savedUser) state.usuario = JSON.parse(savedUser);
+    } catch (e) {
+      state.usuario = null;
+    }
+
+    /* ========================================================================
+       UTILIDADES DE SEGURIDAD (ESCAPADO HTML) Y FORMATO DE FECHA/HORA CÓRDOBA
+       ======================================================================== */
+    function escapeHtml(value) {
+      if (value === null || value === undefined) return "";
+      return String(value)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+    }
+
+    function formatDecimalAR(num) {
+      const n = Number(num) || 0;
+      return n.toFixed(2).replace(".", ",");
+    }
+
+    function pad2(n) {
+      return n < 10 ? "0" + n : String(n);
+    }
+
+    function getCordobaParts(dateObj = new Date()) {
+      const fmt = new Intl.DateTimeFormat("en-CA", {
+        timeZone: TZ,
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        hour12: false
+      });
+      const parts = {};
+      fmt.formatToParts(dateObj).forEach(p => {
+        parts[p.type] = p.value;
+      });
+      const hour = parts.hour === "24" ? "00" : parts.hour;
+      return {
+        ymd: `${parts.year}-${parts.month}-${parts.day}`,
+        hm: `${hour}:${parts.minute}`,
+        hms: `${hour}:${parts.minute}:${parts.second}`,
+        ym: `${parts.year}-${parts.month}`
+      };
+    }
+
+    function getCurrentMonthRangeCordoba() {
+      const p = getCordobaParts(new Date());
+      return {
+        desde: `${p.ym}-01`,
+        hasta: p.ymd
+      };
+    }
+
+    function formatDisplayDateAR(ymd) {
+      const s = String(ymd || "").trim();
+      if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
+        const [y, m, d] = s.split("-");
+        return `${d}/${m}/${y}`;
+      }
+      return s;
+    }
+
+    function showToast(msg, type = "info") {
+      const container = document.getElementById("toastContainer");
+      const el = document.createElement("div");
+      el.className = `toast ${type}`;
+      el.textContent = msg;
+      container.appendChild(el);
+      setTimeout(() => {
+        el.style.opacity = "0";
+        el.style.transition = "opacity 0.25s ease";
+        setTimeout(() => el.remove(), 260);
+      }, 3600);
+    }
+
+    function setAlert(elId, msg, type = "error") {
+      const el = document.getElementById(elId);
+      if (!el) return;
+      if (!msg) {
+        el.className = "alert-box";
+        el.textContent = "";
+        return;
+      }
+      el.className = `alert-box alert-${type} show`;
+      el.textContent = msg;
+    }
+
+    /* ========================================================================
+       GESTIÓN DE CONEXIÓN Y MOTOR LOCAL DE RESPALDO (ESPEJO DE Code.gs)
+       ======================================================================== */
+    function getEffectiveApiUrl() {
+      if (API_URL && API_URL.trim() !== "") return API_URL.trim();
+      const saved = (localStorage.getItem(STORAGE_KEY_API_URL) || "").trim();
+      if (saved !== "") return saved;
+      return "";
+    }
+
+    function updateConnectionUI() {
+      const configContainer = document.getElementById("loginConfigContainer");
+      const pill = document.getElementById("connectionStatusPill");
+      configContainer.style.display = "flex";
+      const effectiveUrl = getEffectiveApiUrl();
+      if (effectiveUrl) {
+        pill.textContent = "🟢 Conectado a Google Sheets (/exec)";
+      } else {
+        pill.textContent = "🧪 Modo Local Activo (sin URL /exec configurada)";
+      }
+    }
+
+    async function sha256Hex(text) {
+      if (window.crypto && window.crypto.subtle) {
+        const buf = new TextEncoder().encode(text);
+        const digest = await window.crypto.subtle.digest("SHA-256", buf);
+        return Array.from(new Uint8Array(digest))
+          .map(b => b.toString(16).padStart(2, "0"))
+          .join("");
+      }
+      // Fallback determinístico si se abre en un entorno sin WebCrypto
+      let h1 = 0xdeadbeef ^ text.length;
+      let h2 = 0x41c6ce57 ^ text.length;
+      for (let i = 0, ch; i < text.length; i++) {
+        ch = text.charCodeAt(i);
+        h1 = Math.imul(h1 ^ ch, 2654435761);
+        h2 = Math.imul(h2 ^ ch, 1597334677);
+      }
+      h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+      h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+      return (h1 >>> 0).toString(16).padStart(8, "0") + (h2 >>> 0).toString(16).padStart(8, "0");
+    }
+
+    async function hashPinLocal(pin, username) {
+      return sha256Hex(`${LOCAL_SALT}:${String(username || "").trim().toLowerCase()}:${String(pin || "").trim()}`);
+    }
+
+    async function getLocalDB() {
+      let db = null;
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY_LOCAL_DB);
+        if (raw) db = JSON.parse(raw);
+      } catch (e) {
+        db = null;
+      }
+      const nowParts = getCordobaParts(new Date());
+      if (!db || !Array.isArray(db.usuarios) || !Array.isArray(db.fichajes)) {
+        const defaultHash = await hashPinLocal("1234", "dueno");
+        const mozoHash = await hashPinLocal("1234", "mozo");
+        db = {
+          usuarios: [
+            {
+              usuario: "dueno",
+              nombre: "Dueño El Patrón",
+              rol: "dueño",
+              pinHash: defaultHash,
+              activo: true,
+              creado: `${nowParts.ymd} ${nowParts.hms}`
+            },
+            {
+              usuario: "mozo",
+              nombre: "Martín Gómez (Mozo)",
+              rol: "empleado",
+              pinHash: mozoHash,
+              activo: true,
+              creado: `${nowParts.ymd} ${nowParts.hms}`
+            }
+          ],
+          fichajes: [],
+          sesiones: {},
+          intentos: {}
+        };
+        saveLocalDB(db);
+      } else if (!db.usuarios.some(u => u.usuario === "mozo")) {
+        const mozoHash = await hashPinLocal("1234", "mozo");
+        db.usuarios.push({
+          usuario: "mozo",
+          nombre: "Martín Gómez (Mozo)",
+          rol: "empleado",
+          pinHash: mozoHash,
+          activo: true,
+          creado: `${nowParts.ymd} ${nowParts.hms}`
+        });
+        saveLocalDB(db);
+      }
+      if (!db.sesiones) db.sesiones = {};
+      if (!db.intentos) db.intentos = {};
+      return db;
+    }
+
+    function saveLocalDB(db) {
+      localStorage.setItem(STORAGE_KEY_LOCAL_DB, JSON.stringify(db));
+    }
+
+    let localMutex = false;
+
+    /**
+     * Simulador local idéntico a Code.gs para probar y usar en local
+     * cuando todavía no se configuró una URL /exec de Google Apps Script.
+     */
+    async function localBackendCall(payload) {
+      const db = await getLocalDB();
+      const action = String(payload.action || "").trim();
+
+      const buildEstado = (userObj) => {
+        const hoy = getCordobaParts(new Date()).ymd;
+        let turnoAbierto = null;
+        const fichajesHoy = [];
+        for (const f of db.fichajes) {
+          if (f.usuario === userObj.usuario) {
+            if (f.estado === "ABIERTO") turnoAbierto = f;
+            if (f.fecha === hoy || f.estado === "ABIERTO") fichajesHoy.push(f);
+          }
+        }
+        fichajesHoy.sort((a, b) => (b.ingresoTS || 0) - (a.ingresoTS || 0));
+        const resumen = summarizeShiftsLocal(fichajesHoy);
+        return {
+          enTurno: Boolean(turnoAbierto),
+          turnoAbierto,
+          fechaHoy: hoy,
+          serverTimeMs: Date.now(),
+          fichajesHoy,
+          totalHoyDecimal: resumen.totalHorasDecimal,
+          totalHoyHHMM: resumen.totalDuracionHHMM
+        };
+      };
+
+      if (action === "login") {
+        const uInput = String(payload.usuario || "").trim().toLowerCase();
+        const pInput = String(payload.pin || "").trim();
+        if (!uInput) return { ok: false, error: "Ingresá tu nombre de usuario.", code: "MISSING_USER" };
+        if (!/^\d{4,8}$/.test(pInput)) {
+          return { ok: false, error: "El PIN debe tener entre 4 y 8 dígitos numéricos.", code: "INVALID_PIN_FORMAT" };
+        }
+
+        const user = db.usuarios.find(u => u.usuario === uInput);
+        const expectedHash = await hashPinLocal(pInput, uInput);
+
+        if (!user || user.pinHash !== expectedHash) {
+          return {
+            ok: false,
+            error: "Usuario o PIN incorrecto.",
+            code: "INVALID_CREDENTIALS"
+          };
+        }
+
+        if (!user.activo) {
+          return { ok: false, error: "Tu cuenta está deshabilitada. Hablá con el dueño.", code: "USER_DISABLED" };
+        }
+
+        db.intentos = {};
+        const token = "loc_" + Math.random().toString(36).slice(2) + Date.now().toString(36);
+        db.sesiones[token] = {
+          usuario: user.usuario,
+          expiresAt: Date.now() + 6 * 3600 * 1000
+        };
+        saveLocalDB(db);
+
+        return {
+          ok: true,
+          token,
+          usuario: { usuario: user.usuario, nombre: user.nombre, rol: user.rol },
+          estado: buildEstado(user)
+        };
+      }
+
+      // Validar token de sesión (6 horas)
+      const sess = db.sesiones[payload.token];
+      if (!sess || Date.now() > sess.expiresAt) {
+        return { ok: false, error: "Tu sesión expiró o no es válida. Volvé a iniciar sesión.", code: "UNAUTHORIZED" };
+      }
+      const currentUser = db.usuarios.find(u => u.usuario === sess.usuario);
+      if (!currentUser || !currentUser.activo) {
+        return { ok: false, error: "Tu usuario fue deshabilitado. Consultá con el dueño.", code: "USER_DISABLED" };
+      }
+      const isOwner = currentUser.rol === "dueño" || currentUser.rol === "dueno";
+
+      if (action === "estado") {
+        return {
+          ok: true,
+          usuario: { usuario: currentUser.usuario, nombre: currentUser.nombre, rol: currentUser.rol },
+          ...buildEstado(currentUser)
+        };
+      }
+
+      if (action === "ingreso") {
+        if (localMutex) {
+          return { ok: false, error: "El servidor está procesando otro fichaje.", code: "LOCK_TIMEOUT" };
+        }
+        localMutex = true;
+        try {
+          const openShift = db.fichajes.find(f => f.usuario === currentUser.usuario && f.estado === "ABIERTO");
+          if (openShift) {
+            return {
+              ok: false,
+              error: `Ya tenés un ingreso abierto desde las ${openShift.ingreso} (${openShift.fecha}). Tenés que marcar EGRESO antes de volver a ingresar.`,
+              code: "ALREADY_OPEN"
+            };
+          }
+          const now = new Date();
+          const parts = getCordobaParts(now);
+          const newRecord = {
+            id: `F-${parts.ymd.replace(/-/g, "")}-${parts.hms.replace(/:/g, "")}-${Math.floor(1000 + Math.random() * 9000)}`,
+            usuario: currentUser.usuario,
+            nombre: currentUser.nombre,
+            fecha: parts.ymd,
+            ingreso: parts.hm,
+            egreso: "",
+            horasDecimal: 0,
+            duracion: "00:00",
+            estado: "ABIERTO",
+            ingresoTS: now.getTime(),
+            egresoTS: null
+          };
+          db.fichajes.push(newRecord);
+          saveLocalDB(db);
+          return {
+            ok: true,
+            mensaje: `Ingreso registrado a las ${parts.hm} hs.`,
+            ...buildEstado(currentUser)
+          };
+        } finally {
+          localMutex = false;
+        }
+      }
+
+      if (action === "egreso") {
+        if (localMutex) {
+          return { ok: false, error: "El servidor está procesando otro fichaje.", code: "LOCK_TIMEOUT" };
+        }
+        localMutex = true;
+        try {
+          const openShift = db.fichajes.find(f => f.usuario === currentUser.usuario && f.estado === "ABIERTO");
+          if (!openShift) {
+            return {
+              ok: false,
+              error: "No tenés ningún turno abierto para cerrar. Primero tenés que marcar INGRESO.",
+              code: "NO_OPEN_SHIFT"
+            };
+          }
+          const egresoMs = Math.max(Date.now(), openShift.ingresoTS + 1000);
+          const parts = getCordobaParts(new Date(egresoMs));
+          const calc = calcDurationLocal(openShift.ingresoTS, egresoMs);
+
+          openShift.egreso = parts.hm;
+          openShift.horasDecimal = calc.horasDecimal;
+          openShift.duracion = calc.duracionHHMM;
+          openShift.estado = "CERRADO";
+          openShift.egresoTS = egresoMs;
+          saveLocalDB(db);
+
+          return {
+            ok: true,
+            mensaje: `Egreso registrado a las ${parts.hm} hs. Duración del turno: ${calc.duracionHHMM} hs.`,
+            ...buildEstado(currentUser)
+          };
+        } finally {
+          localMutex = false;
+        }
+      }
+
+      if (action === "misHoras") {
+        const range = getCurrentMonthRangeCordoba();
+        const desde = payload.desde || range.desde;
+        const hasta = payload.hasta || range.hasta;
+        const list = db.fichajes
+          .filter(f => f.usuario === currentUser.usuario && f.fecha >= desde && f.fecha <= hasta)
+          .sort((a, b) => (b.ingresoTS || 0) - (a.ingresoTS || 0));
+        const totals = summarizeShiftsLocal(list);
+        return {
+          ok: true,
+          desde,
+          hasta,
+          fichajes: list,
+          totalHorasDecimal: totals.totalHorasDecimal,
+          totalDuracionHHMM: totals.totalDuracionHHMM,
+          cantidadTurnos: list.length
+        };
+      }
+
+      if (action === "cambiarPin") {
+        const pAct = String(payload.pinActual || "").trim();
+        const pNue = String(payload.pinNuevo || "").trim();
+        if (!/^\d{4,8}$/.test(pNue)) {
+          return { ok: false, error: "El nuevo PIN debe tener entre 4 y 8 dígitos numéricos.", code: "INVALID_NEW_PIN" };
+        }
+        const currHash = await hashPinLocal(pAct, currentUser.usuario);
+        if (currentUser.pinHash !== currHash) {
+          return { ok: false, error: "El PIN actual que ingresaste es incorrecto.", code: "WRONG_CURRENT_PIN" };
+        }
+        currentUser.pinHash = await hashPinLocal(pNue, currentUser.usuario);
+        saveLocalDB(db);
+        return { ok: true, mensaje: "Tu PIN se actualizó correctamente." };
+      }
+
+      if (!isOwner) {
+        return { ok: false, error: "No tenés permisos de dueño para realizar esta acción.", code: "FORBIDDEN" };
+      }
+
+      if (action === "empleados") {
+        const empleados = db.usuarios.map(u => {
+          const abierto = db.fichajes.find(f => f.usuario === u.usuario && f.estado === "ABIERTO") || null;
+          return {
+            usuario: u.usuario,
+            nombre: u.nombre,
+            rol: u.rol,
+            activo: u.activo,
+            creado: u.creado,
+            enTurno: Boolean(abierto),
+            turnoAbierto: abierto
+          };
+        });
+        const adentroAhora = empleados
+          .filter(e => e.enTurno)
+          .map(e => ({
+            usuario: e.usuario,
+            nombre: e.nombre,
+            fecha: e.turnoAbierto.fecha,
+            ingreso: e.turnoAbierto.ingreso,
+            ingresoTS: e.turnoAbierto.ingresoTS,
+            fichajeId: e.turnoAbierto.id
+          }));
+        return { ok: true, empleados, adentroAhora };
+      }
+
+      if (action === "crearEmpleado") {
+        const nombre = String(payload.nombre || "").trim();
+        const usuario = String(payload.usuario || "").trim().toLowerCase();
+        const pin = String(payload.pin || "").trim();
+        const rol = (payload.rol === "dueño" || payload.rol === "dueno") ? "dueño" : "empleado";
+
+        if (!nombre || nombre.length < 2) {
+          return { ok: false, error: "Ingresá el nombre completo del empleado.", code: "INVALID_NAME" };
+        }
+        if (!/^[a-z0-9._-]{3,30}$/.test(usuario)) {
+          return { ok: false, error: "El usuario debe tener entre 3 y 30 caracteres alfanuméricos sin espacios.", code: "INVALID_USERNAME" };
+        }
+        if (!/^\d{4,8}$/.test(pin)) {
+          return { ok: false, error: "El PIN debe tener entre 4 y 8 dígitos numéricos.", code: "INVALID_PIN" };
+        }
+        if (db.usuarios.some(u => u.usuario === usuario)) {
+          return { ok: false, error: `Ya existe un empleado con el usuario "${usuario}".`, code: "USER_EXISTS" };
+        }
+        const pHash = await hashPinLocal(pin, usuario);
+        const parts = getCordobaParts(new Date());
+        db.usuarios.push({
+          usuario,
+          nombre,
+          rol,
+          pinHash: pHash,
+          activo: true,
+          creado: `${parts.ymd} ${parts.hms}`
+        });
+        saveLocalDB(db);
+        return { ok: true, mensaje: `Empleado "${nombre}" (${usuario}) creado con éxito.` };
+      }
+
+      if (action === "toggleEmpleado") {
+        const targetU = String(payload.usuario || "").trim().toLowerCase();
+        if (targetU === currentUser.usuario) {
+          return { ok: false, error: "No podés deshabilitar tu propio usuario.", code: "CANNOT_DISABLE_SELF" };
+        }
+        const target = db.usuarios.find(u => u.usuario === targetU);
+        if (!target) return { ok: false, error: "Empleado no encontrado.", code: "USER_NOT_FOUND" };
+        target.activo = !target.activo;
+        saveLocalDB(db);
+        return {
+          ok: true,
+          activo: target.activo,
+          mensaje: `El empleado "${target.nombre}" ahora está ${target.activo ? "HABILITADO" : "DESHABILITADO"}.`
+        };
+      }
+
+      if (action === "resetPin") {
+        const targetU = String(payload.usuario || "").trim().toLowerCase();
+        const pin = String(payload.pin || "").trim();
+        if (!/^\d{4,8}$/.test(pin)) {
+          return { ok: false, error: "El nuevo PIN debe tener entre 4 y 8 dígitos numéricos.", code: "INVALID_PIN" };
+        }
+        const target = db.usuarios.find(u => u.usuario === targetU);
+        if (!target) return { ok: false, error: "Empleado no encontrado.", code: "USER_NOT_FOUND" };
+        target.pinHash = await hashPinLocal(pin, target.usuario);
+        delete db.intentos[target.usuario];
+        saveLocalDB(db);
+        return { ok: true, mensaje: `Se actualizó el PIN de "${target.nombre}" (${target.usuario}).` };
+      }
+
+      if (action === "egresoForzado") {
+        const targetU = String(payload.usuario || "").trim().toLowerCase();
+        const horaOpc = String(payload.hora || "").trim();
+        const openShift = db.fichajes.find(f => f.usuario === targetU && f.estado === "ABIERTO");
+        if (!openShift) {
+          return { ok: false, error: `El empleado "${targetU}" no tiene ningún turno abierto.`, code: "NO_OPEN_SHIFT" };
+        }
+        let egresoMs;
+        let horaEgreso;
+        if (horaOpc) {
+          if (!/^([01]\d|2[0-3]):([0-5]\d)$/.test(horaOpc)) {
+            return { ok: false, error: "El formato de hora debe ser HH:MM.", code: "INVALID_TIME_FORMAT" };
+          }
+          horaEgreso = horaOpc;
+          const candidate = new Date(`${openShift.fecha}T${horaOpc}:00-03:00`).getTime();
+          egresoMs = candidate < openShift.ingresoTS ? candidate + 86400000 : candidate;
+        } else {
+          egresoMs = Math.max(Date.now(), openShift.ingresoTS + 1000);
+          horaEgreso = getCordobaParts(new Date(egresoMs)).hm;
+        }
+        const calc = calcDurationLocal(openShift.ingresoTS, egresoMs);
+        openShift.egreso = horaEgreso;
+        openShift.horasDecimal = calc.horasDecimal;
+        openShift.duracion = calc.duracionHHMM;
+        openShift.estado = "CERRADO";
+        openShift.egresoTS = egresoMs;
+        saveLocalDB(db);
+        return {
+          ok: true,
+          mensaje: `Egreso forzado aplicado a "${openShift.nombre}" a las ${horaEgreso} hs (${calc.duracionHHMM} hs).`
+        };
+      }
+
+      if (action === "reporte") {
+        const range = getCurrentMonthRangeCordoba();
+        const desde = payload.desde || range.desde;
+        const hasta = payload.hasta || range.hasta;
+        const empFiltro = String(payload.usuario || "todos").trim().toLowerCase();
+
+        const filtered = db.fichajes
+          .filter(f => {
+            const mDate = f.fecha >= desde && f.fecha <= hasta;
+            const mUser = !empFiltro || empFiltro === "todos" || f.usuario === empFiltro;
+            return mDate && mUser;
+          })
+          .sort((a, b) => (b.ingresoTS || 0) - (a.ingresoTS || 0));
+
+        const mapRes = {};
+        filtered.forEach(s => {
+          if (!mapRes[s.usuario]) {
+            mapRes[s.usuario] = {
+              usuario: s.usuario,
+              nombre: s.nombre,
+              turnosCerrados: 0,
+              turnosAbiertos: 0,
+              minutosTotales: 0
+            };
+          }
+          if (s.estado === "ABIERTO") {
+            mapRes[s.usuario].turnosAbiertos++;
+          } else {
+            mapRes[s.usuario].turnosCerrados++;
+            mapRes[s.usuario].minutosTotales += durationToMinutesLocal(s.duracion, s.horasDecimal);
+          }
+        });
+
+        const resumenPorEmpleado = Object.values(mapRes).map(r => ({
+          usuario: r.usuario,
+          nombre: r.nombre,
+          turnosCerrados: r.turnosCerrados,
+          turnosAbiertos: r.turnosAbiertos,
+          totalTurnos: r.turnosCerrados + r.turnosAbiertos,
+          horasDecimal: Math.round((r.minutosTotales / 60) * 100) / 100,
+          duracionHHMM: minutesToHHMMLocal(r.minutosTotales)
+        })).sort((a, b) => b.horasDecimal - a.horasDecimal);
+
+        const totals = summarizeShiftsLocal(filtered);
+        return {
+          ok: true,
+          desde,
+          hasta,
+          usuarioFiltro: empFiltro,
+          empleadosLista: db.usuarios.map(u => ({ usuario: u.usuario, nombre: u.nombre, activo: u.activo })),
+          resumenPorEmpleado,
+          fichajes: filtered,
+          totalGeneralDecimal: totals.totalHorasDecimal,
+          totalGeneralHHMM: totals.totalDuracionHHMM,
+          cantidadTurnos: filtered.length
+        };
+      }
+
+      return { ok: false, error: "Acción desconocida: " + action, code: "UNKNOWN_ACTION" };
+    }
+
+    function calcDurationLocal(ingresoTS, egresoTS) {
+      const diffMs = Math.max(0, egresoTS - ingresoTS);
+      const totalMinutes = Math.max(1, Math.round(diffMs / 60000));
+      const h = Math.floor(totalMinutes / 60);
+      const m = totalMinutes % 60;
+      return {
+        totalMinutes,
+        duracionHHMM: `${pad2(h)}:${pad2(m)}`,
+        horasDecimal: Math.round((diffMs / 3600000) * 100) / 100
+      };
+    }
+
+    function durationToMinutesLocal(durStr, decFallback) {
+      if (durStr && /^\d{1,4}:\d{2}$/.test(String(durStr).trim())) {
+        const [h, m] = String(durStr).trim().split(":").map(Number);
+        return h * 60 + m;
+      }
+      return Math.round((Number(decFallback) || 0) * 60);
+    }
+
+    function minutesToHHMMLocal(mins) {
+      const m = Math.max(0, Math.round(mins));
+      return `${pad2(Math.floor(m / 60))}:${pad2(m % 60)}`;
+    }
+
+    function summarizeShiftsLocal(shifts) {
+      let totalMinutos = 0;
+      shifts.forEach(s => {
+        if (s.estado === "CERRADO") {
+          totalMinutos += durationToMinutesLocal(s.duracion, s.horasDecimal);
+        }
+      });
+      return {
+        totalMinutos,
+        totalHorasDecimal: Math.round((totalMinutos / 60) * 100) / 100,
+        totalDuracionHHMM: minutesToHHMMLocal(totalMinutos)
+      };
+    }
+
+    /**
+     * Envía una petición al backend (Google Apps Script vía text/plain para evitar CORS preflight,
+     * o motor local si no hay URL configurada).
+     */
+    async function apiCall(action, datos = {}) {
+      const payload = {
+        action,
+        token: state.token,
+        ...datos
+      };
+
+      const url = getEffectiveApiUrl();
+      if (!url) {
+        const res = await localBackendCall(payload);
+        if (!res.ok && res.code === "UNAUTHORIZED") {
+          forceLogout("Tu sesión expiró. Volvé a ingresar.");
+        }
+        return res;
+      }
+
+      try {
+        const response = await fetch(url, {
+          method: "POST",
+          headers: {
+            "Content-Type": "text/plain;charset=utf-8"
+          },
+          body: JSON.stringify(payload)
+        });
+        const data = await response.json();
+        if (!data.ok && data.code === "UNAUTHORIZED") {
+          forceLogout(data.error || "Tu sesión expiró.");
+        }
+        return data;
+      } catch (err) {
+        return {
+          ok: false,
+          error: "No se pudo conectar con Google Apps Script. Verificá tu conexión o la URL configurada.",
+          code: "NETWORK_ERROR"
+        };
+      }
+    }
+
+    function setClientLockout() {
+      localStorage.removeItem(STORAGE_KEY_LOCKOUT);
+    }
+
+    function checkClientLockoutState() {
+      localStorage.removeItem(STORAGE_KEY_LOCKOUT);
+      const btn = document.getElementById("btnLoginSubmit");
+      if (btn) btn.disabled = false;
+      return false;
+    }
+
+    /* ========================================================================
+       RELOJ EN VIVO Y CRONÓMETRO DE TURNO
+       ======================================================================== */
+    function updateLiveClockAndStopwatch() {
+      const now = new Date();
+      const timeFmt = new Intl.DateTimeFormat("es-AR", {
+        timeZone: TZ,
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        hour12: false
+      });
+      const dateFmt = new Intl.DateTimeFormat("es-AR", {
+        timeZone: TZ,
+        weekday: "long",
+        day: "numeric",
+        month: "long",
+        year: "numeric"
+      });
+
+      const clockEl = document.getElementById("liveClockTime");
+      const dateEl = document.getElementById("liveClockDate");
+      if (clockEl) clockEl.textContent = timeFmt.format(now);
+      if (dateEl) dateEl.textContent = dateFmt.format(now);
+
+      const swEl = document.getElementById("shiftStopwatch");
+      if (!swEl) return;
+
+      if (state.enTurno && state.turnoAbierto && state.turnoAbierto.ingresoTS) {
+        const elapsedSec = Math.max(0, Math.floor((Date.now() - Number(state.turnoAbierto.ingresoTS)) / 1000));
+        const h = Math.floor(elapsedSec / 3600);
+        const m = Math.floor((elapsedSec % 3600) / 60);
+        const s = elapsedSec % 60;
+        swEl.textContent = `${pad2(h)}:${pad2(m)}:${pad2(s)}`;
+      } else {
+        swEl.textContent = "00:00:00";
+      }
+    }
+
+    setInterval(updateLiveClockAndStopwatch, 1000);
+
+    /* ========================================================================
+       AUTENTICACIÓN, SESIÓN Y NAVEGACIÓN DE VISTAS
+       ======================================================================== */
+    function isOwnerRole(user) {
+      if (!user || !user.rol) return false;
+      const r = String(user.rol).trim().toLowerCase();
+      return r === "dueño" || r === "dueno";
+    }
+
+    function applyUserSessionUI() {
+      const user = state.usuario;
+      if (!user || !state.token) {
+        document.getElementById("loginScreen").style.display = "flex";
+        document.getElementById("appLayout").style.display = "none";
+        updateConnectionUI();
+        checkClientLockoutState();
+        return;
+      }
+
+      document.getElementById("loginScreen").style.display = "none";
+      document.getElementById("appLayout").style.display = "flex";
+
+      document.getElementById("sidebarUserName").textContent = user.nombre || user.usuario;
+      document.getElementById("sidebarUserRole").textContent = isOwnerRole(user) ? "Rol: Dueño" : "Rol: Empleado";
+      document.getElementById("heroWelcomeTitle").textContent = `Bienvenido a El Patrón`;
+      document.getElementById("heroTerminalChip").textContent =
+        `Terminal de Fichaje · ${user.nombre} (${isOwnerRole(user) ? "Dueño" : "Empleado"})`;
+
+      // Mostrar u ocultar pestañas exclusivas de dueño
+      document.querySelectorAll(".owner-only").forEach(btn => {
+        btn.style.display = isOwnerRole(user) ? "flex" : "none";
+      });
+
+      // Inicializar filtros de fechas con el mes actual
+      const range = getCurrentMonthRangeCordoba();
+      document.getElementById("misHorasDesde").value = range.desde;
+      document.getElementById("misHorasHasta").value = range.hasta;
+      document.getElementById("repDesde").value = range.desde;
+      document.getElementById("repHasta").value = range.hasta;
+
+      updateLiveClockAndStopwatch();
+    }
+
+    function forceLogout(msg) {
+      state.token = "";
+      state.usuario = null;
+      state.enTurno = false;
+      state.turnoAbierto = null;
+      sessionStorage.removeItem(STORAGE_KEY_SESSION);
+      sessionStorage.removeItem(STORAGE_KEY_USER);
+      applyUserSessionUI();
+      if (msg) setAlert("loginAlert", msg, "error");
+    }
+
+    function switchView(viewName) {
+      document.querySelectorAll(".nav-item").forEach(btn => {
+        btn.classList.toggle("active", btn.dataset.view === viewName);
+      });
+      document.querySelectorAll(".view-section").forEach(sec => {
+        sec.classList.toggle("active", sec.id === `view-${viewName}`);
+      });
+
+      if (viewName === "fichar") {
+        loadEstadoFichaje();
+      } else if (viewName === "misHoras") {
+        loadMisHoras();
+      } else if (viewName === "empleados" && isOwnerRole(state.usuario)) {
+        loadEmpleados();
+      } else if (viewName === "reporte" && isOwnerRole(state.usuario)) {
+        loadReporte();
+      } else if (viewName === "miCuenta") {
+        setAlert("cambiarPinAlert", "");
+      }
+    }
+
+    /* ========================================================================
+       VISTA 1: FICHAR (ESTADO, INGRESO, EGRESO Y TABLA DE HOY)
+       ======================================================================== */
+    function renderEstadoFichaje(data) {
+      state.enTurno = Boolean(data.enTurno);
+      state.turnoAbierto = data.turnoAbierto || null;
+      state.fichajesHoy = Array.isArray(data.fichajesHoy) ? data.fichajesHoy : [];
+
+      const badge = document.getElementById("shiftStatusBadge");
+      const statusText = document.getElementById("shiftStatusText");
+      const sinceNote = document.getElementById("shiftSinceNote");
+      const btnIngreso = document.getElementById("btnMarcarIngreso");
+      const btnEgreso = document.getElementById("btnMarcarEgreso");
+
+      if (state.enTurno && state.turnoAbierto) {
+        badge.className = "status-badge in-shift";
+        statusText.textContent = "En turno";
+        sinceNote.textContent = `Ingreso marcado a las ${state.turnoAbierto.ingreso} hs (${formatDisplayDateAR(state.turnoAbierto.fecha)})`;
+        // Regla clave: si ya marcó ingreso, INGRESO queda deshabilitado hasta que marque EGRESO
+        btnIngreso.disabled = true;
+        btnEgreso.disabled = false;
+      } else {
+        badge.className = "status-badge out-shift";
+        statusText.textContent = "Fuera de turno";
+        sinceNote.textContent = "Listo para registrar tu ingreso";
+        btnIngreso.disabled = false;
+        btnEgreso.disabled = true;
+      }
+
+      document.getElementById("todayTotalHHMM").textContent = `${data.totalHoyHHMM || "00:00"} hs`;
+      document.getElementById("todayTotalDec").textContent = `(${formatDecimalAR(data.totalHoyDecimal)} h)`;
+
+      const tbody = document.getElementById("todayTableBody");
+      if (state.fichajesHoy.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="6" class="empty-state">Todavía no tenés fichajes registrados en el día de hoy.</td></tr>`;
+      } else {
+        tbody.innerHTML = state.fichajesHoy.map(f => {
+          const isAbierto = f.estado === "ABIERTO";
+          return `
+            <tr>
+              <td class="mono">${escapeHtml(formatDisplayDateAR(f.fecha))}</td>
+              <td class="mono"><strong>${escapeHtml(f.ingreso || "—")}</strong></td>
+              <td class="mono">${escapeHtml(f.egreso || "—")}</td>
+              <td class="mono">${isAbierto ? "En curso..." : escapeHtml(f.duracion) + " hs"}</td>
+              <td class="mono">${isAbierto ? "—" : formatDecimalAR(f.horasDecimal) + " h"}</td>
+              <td>
+                <span class="pill ${isAbierto ? "pill-open" : "pill-closed"}">
+                  ${isAbierto ? "● ABIERTO" : "✓ CERRADO"}
+                </span>
+              </td>
+            </tr>
+          `;
+        }).join("");
+      }
+
+      updateLiveClockAndStopwatch();
+    }
+
+    async function loadEstadoFichaje() {
+      const res = await apiCall("estado");
+      if (res.ok) {
+        renderEstadoFichaje(res);
+      } else {
+        showToast(res.error || "No se pudo obtener el estado actual.", "error");
+      }
+    }
+
+    async function handleMarcarIngreso() {
+      if (state.actionLock) return;
+      state.actionLock = true;
+      const btnIngreso = document.getElementById("btnMarcarIngreso");
+      btnIngreso.disabled = true;
+      setAlert("ficharFeedback", "");
+
+      try {
+        const res = await apiCall("ingreso");
+        if (res.ok) {
+          renderEstadoFichaje(res);
+          setAlert("ficharFeedback", res.mensaje || "Ingreso registrado correctamente.", "success");
+          showToast(res.mensaje || "Ingreso registrado.", "success");
+        } else {
+          setAlert("ficharFeedback", res.error || "No se pudo registrar el ingreso.", "error");
+          showToast(res.error || "Error al marcar ingreso.", "error");
+          await loadEstadoFichaje();
+        }
+      } finally {
+        state.actionLock = false;
+      }
+    }
+
+    async function handleMarcarEgreso() {
+      if (state.actionLock) return;
+      state.actionLock = true;
+      const btnEgreso = document.getElementById("btnMarcarEgreso");
+      btnEgreso.disabled = true;
+      setAlert("ficharFeedback", "");
+
+      try {
+        const res = await apiCall("egreso");
+        if (res.ok) {
+          renderEstadoFichaje(res);
+          setAlert("ficharFeedback", res.mensaje || "Egreso registrado correctamente.", "success");
+          showToast(res.mensaje || "Egreso registrado.", "success");
+        } else {
+          setAlert("ficharFeedback", res.error || "No se pudo registrar el egreso.", "error");
+          showToast(res.error || "Error al marcar egreso.", "error");
+          await loadEstadoFichaje();
+        }
+      } finally {
+        state.actionLock = false;
+      }
+    }
+
+    /* ========================================================================
+       VISTA 2: MIS HORAS
+       ======================================================================== */
+    async function loadMisHoras() {
+      const desde = document.getElementById("misHorasDesde").value;
+      const hasta = document.getElementById("misHorasHasta").value;
+      const tbody = document.getElementById("misHorasTableBody");
+      tbody.innerHTML = `<tr><td colspan="6" class="empty-state">Consultando tus horas...</td></tr>`;
+
+      const res = await apiCall("misHoras", { desde, hasta });
+      if (!res.ok) {
+        tbody.innerHTML = `<tr><td colspan="6" class="empty-state">${escapeHtml(res.error || "Error al cargar tus horas.")}</td></tr>`;
+        return;
+      }
+
+      document.getElementById("misHorasTotalHHMM").textContent = `${res.totalDuracionHHMM || "00:00"} hs`;
+      document.getElementById("misHorasTotalDec").textContent = `${formatDecimalAR(res.totalHorasDecimal)} h`;
+      document.getElementById("misHorasCount").textContent = String(res.cantidadTurnos || 0);
+
+      const list = Array.isArray(res.fichajes) ? res.fichajes : [];
+      if (list.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="6" class="empty-state">No hay fichajes registrados en este rango de fechas.</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = list.map(f => {
+        const isAbierto = f.estado === "ABIERTO";
+        return `
+          <tr>
+            <td class="mono">${escapeHtml(formatDisplayDateAR(f.fecha))}</td>
+            <td class="mono">${escapeHtml(f.ingreso || "—")}</td>
+            <td class="mono">${escapeHtml(f.egreso || "—")}</td>
+            <td class="mono">${isAbierto ? "En curso" : escapeHtml(f.duracion) + " hs"}</td>
+            <td class="mono">${isAbierto ? "—" : formatDecimalAR(f.horasDecimal) + " h"}</td>
+            <td>
+              <span class="pill ${isAbierto ? "pill-open" : "pill-closed"}">
+                ${isAbierto ? "● ABIERTO" : "✓ CERRADO"}
+              </span>
+            </td>
+          </tr>
+        `;
+      }).join("");
+    }
+
+    /* ========================================================================
+       VISTA 3: EMPLEADOS (SOLO DUEÑO)
+       ======================================================================== */
+    async function loadEmpleados() {
+      const tbody = document.getElementById("empleadosTableBody");
+      const adentroBox = document.getElementById("adentroAhoraContainer");
+
+      const res = await apiCall("empleados");
+      if (!res.ok) {
+        showToast(res.error || "No se pudo cargar la nómina de empleados.", "error");
+        return;
+      }
+
+      const adentro = Array.isArray(res.adentroAhora) ? res.adentroAhora : [];
+      if (adentro.length === 0) {
+        adentroBox.innerHTML = `<div class="empty-state">No hay empleados con turno abierto en este momento.</div>`;
+      } else {
+        adentroBox.innerHTML = adentro.map(a => `
+          <div class="timer-box" style="margin-top: 10px;">
+            <div>
+              <div style="font-weight: 800; font-size: 15px; color: var(--dark-espresso);">
+                🟢 ${escapeHtml(a.nombre)} <span class="mono" style="font-weight:500; color:var(--text-muted);">(@${escapeHtml(a.usuario)})</span>
+              </div>
+              <div class="stat-note">
+                Ingresó el ${escapeHtml(formatDisplayDateAR(a.fecha))} a las <strong>${escapeHtml(a.ingreso)} hs</strong>
+              </div>
+            </div>
+            <button
+              type="button"
+              class="btn-xs btn-xs-danger"
+              data-action="forzar-egreso"
+              data-usuario="${escapeHtml(a.usuario)}"
+              data-nombre="${escapeHtml(a.nombre)}"
+              data-ingreso="${escapeHtml(a.ingreso)}"
+            >
+              🛑 Forzar egreso
+            </button>
+          </div>
+        `).join("");
+      }
+
+      const empleados = Array.isArray(res.empleados) ? res.empleados : [];
+      if (empleados.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="6" class="empty-state">No hay empleados registrados.</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = empleados.map(e => {
+        const esMismoUsuario = state.usuario && e.usuario === state.usuario.usuario;
+        const esDueno = e.rol === "dueño" || e.rol === "dueno";
+        return `
+          <tr>
+            <td><strong>${escapeHtml(e.nombre)}</strong></td>
+            <td class="mono">${escapeHtml(e.usuario)}</td>
+            <td><span class="pill pill-role">${esDueno ? "Dueño" : "Empleado"}</span></td>
+            <td>
+              <span class="pill ${e.activo ? "pill-closed" : "pill-inactive"}">
+                ${e.activo ? "Activo" : "Deshabilitado"}
+              </span>
+            </td>
+            <td>
+              ${e.enTurno
+                ? `<span class="pill pill-open">🟢 En turno (${escapeHtml(e.turnoAbierto.ingreso)} hs)</span>`
+                : `<span style="color:var(--text-muted); font-size:13px;">Fuera de turno</span>`
+              }
+            </td>
+            <td>
+              <div class="action-btn-group">
+                <button
+                  type="button"
+                  class="btn-xs btn-xs-outline"
+                  data-action="reset-pin"
+                  data-usuario="${escapeHtml(e.usuario)}"
+                  data-nombre="${escapeHtml(e.nombre)}"
+                >
+                  🔑 Cambiar PIN
+                </button>
+                ${!esMismoUsuario ? `
+                  <button
+                    type="button"
+                    class="btn-xs ${e.activo ? "btn-xs-danger" : "btn-xs-copper"}"
+                    data-action="toggle-emp"
+                    data-usuario="${escapeHtml(e.usuario)}"
+                  >
+                    ${e.activo ? "🚫 Deshabilitar" : "✅ Habilitar"}
+                  </button>
+                ` : ""}
+                ${e.enTurno ? `
+                  <button
+                    type="button"
+                    class="btn-xs btn-xs-danger"
+                    data-action="forzar-egreso"
+                    data-usuario="${escapeHtml(e.usuario)}"
+                    data-nombre="${escapeHtml(e.nombre)}"
+                    data-ingreso="${escapeHtml(e.turnoAbierto.ingreso)}"
+                  >
+                    🛑 Forzar egreso
+                  </button>
+                ` : ""}
+              </div>
+            </td>
+          </tr>
+        `;
+      }).join("");
+    }
+
+    /* ========================================================================
+       VISTA 4: REPORTE Y DESCARGA CSV PARA EXCEL ARGENTINO
+       ======================================================================== */
+    async function loadReporte() {
+      const desde = document.getElementById("repDesde").value;
+      const hasta = document.getElementById("repHasta").value;
+      const usuario = document.getElementById("repEmpleado").value;
+
+      const res = await apiCall("reporte", { desde, hasta, usuario });
+      if (!res.ok) {
+        showToast(res.error || "Error al generar el reporte.", "error");
+        return;
+      }
+
+      // Poblar selector de empleados conservando la selección
+      const selectEmp = document.getElementById("repEmpleado");
+      const currentVal = res.usuarioFiltro || "todos";
+      const listaEmp = Array.isArray(res.empleadosLista) ? res.empleadosLista : [];
+      selectEmp.innerHTML = `<option value="todos">Todos los empleados</option>` +
+        listaEmp.map(u => `<option value="${escapeHtml(u.usuario)}">${escapeHtml(u.nombre)} (@${escapeHtml(u.usuario)})</option>`).join("");
+      selectEmp.value = currentVal;
+
+      document.getElementById("repTotalHHMM").textContent = `${res.totalGeneralHHMM || "00:00"} hs`;
+      document.getElementById("repTotalDec").textContent = `${formatDecimalAR(res.totalGeneralDecimal)} h`;
+      document.getElementById("repTotalTurnos").textContent = String(res.cantidadTurnos || 0);
+
+      const resumen = Array.isArray(res.resumenPorEmpleado) ? res.resumenPorEmpleado : [];
+      const fichajes = Array.isArray(res.fichajes) ? res.fichajes : [];
+
+      state.reporteActual = {
+        desde: res.desde,
+        hasta: res.hasta,
+        resumenPorEmpleado: resumen,
+        fichajes
+      };
+
+      const resBody = document.getElementById("repResumenBody");
+      if (resumen.length === 0) {
+        resBody.innerHTML = `<tr><td colspan="6" class="empty-state">No hay horas registradas para el filtro seleccionado.</td></tr>`;
+      } else {
+        resBody.innerHTML = resumen.map(r => `
+          <tr>
+            <td><strong>${escapeHtml(r.nombre)}</strong></td>
+            <td class="mono">${escapeHtml(r.usuario)}</td>
+            <td class="mono">${escapeHtml(r.turnosCerrados)}</td>
+            <td class="mono">${escapeHtml(r.turnosAbiertos)}</td>
+            <td class="mono"><strong>${escapeHtml(r.duracionHHMM)} hs</strong></td>
+            <td class="mono"><strong>${formatDecimalAR(r.horasDecimal)} h</strong></td>
+          </tr>
+        `).join("");
+      }
+
+      const detBody = document.getElementById("repDetalleBody");
+      if (fichajes.length === 0) {
+        detBody.innerHTML = `<tr><td colspan="8" class="empty-state">No hay fichajes en este período.</td></tr>`;
+      } else {
+        detBody.innerHTML = fichajes.map(f => {
+          const isAbierto = f.estado === "ABIERTO";
+          return `
+            <tr>
+              <td class="mono">${escapeHtml(formatDisplayDateAR(f.fecha))}</td>
+              <td><strong>${escapeHtml(f.nombre)}</strong></td>
+              <td class="mono">${escapeHtml(f.usuario)}</td>
+              <td class="mono">${escapeHtml(f.ingreso || "—")}</td>
+              <td class="mono">${escapeHtml(f.egreso || "—")}</td>
+              <td class="mono">${isAbierto ? "En curso" : escapeHtml(f.duracion) + " hs"}</td>
+              <td class="mono">${isAbierto ? "0,00" : formatDecimalAR(f.horasDecimal)}</td>
+              <td>
+                <span class="pill ${isAbierto ? "pill-open" : "pill-closed"}">
+                  ${isAbierto ? "● ABIERTO" : "✓ CERRADO"}
+                </span>
+              </td>
+            </tr>
+          `;
+        }).join("");
+      }
+    }
+
+    /**
+     * Exporta el reporte actual en CSV con:
+     * - BOM UTF-8 (\uFEFF)
+     * - Separador punto y coma (;)
+     * - Decimales con coma (,) para Excel en Argentina
+     */
+    function descargarReporteCSV() {
+      const { desde, hasta, resumenPorEmpleado, fichajes } = state.reporteActual;
+      if ((!fichajes || fichajes.length === 0) && (!resumenPorEmpleado || resumenPorEmpleado.length === 0)) {
+        showToast("No hay datos en el reporte actual para exportar.", "error");
+        return;
+      }
+
+      const sanitizeCsvCell = (val) => {
+        const s = String(val === null || val === undefined ? "" : val).replace(/"/g, '""');
+        return `"${s}"`;
+      };
+
+      const lines = [];
+      lines.push(["REPORTE DE FICHAJES - EL PATRÓN", `Desde: ${desde}`, `Hasta: ${hasta}`].map(sanitizeCsvCell).join(";"));
+      lines.push("");
+
+      // Sección 1: Resumen por empleado
+      lines.push(["RESUMEN POR EMPLEADO"].map(sanitizeCsvCell).join(";"));
+      lines.push(["Empleado", "Usuario", "Turnos Cerrados", "Turnos Abiertos", "Duracion Total (hh:mm)", "Horas Totales (decimal)"].map(sanitizeCsvCell).join(";"));
+      resumenPorEmpleado.forEach(r => {
+        lines.push([
+          sanitizeCsvCell(r.nombre),
+          sanitizeCsvCell(r.usuario),
+          r.turnosCerrados,
+          r.turnosAbiertos,
+          sanitizeCsvCell(r.duracionHHMM),
+          formatDecimalAR(r.horasDecimal)
+        ].join(";"));
+      });
+
+      lines.push("");
+
+      // Sección 2: Detalle de fichajes
+      lines.push(["DETALLE DE FICHAJES"].map(sanitizeCsvCell).join(";"));
+      lines.push(["ID", "Fecha", "Usuario", "Nombre", "Ingreso", "Egreso", "Duracion (hh:mm)", "Horas decimal", "Estado"].map(sanitizeCsvCell).join(";"));
+      fichajes.forEach(f => {
+        lines.push([
+          sanitizeCsvCell(f.id),
+          sanitizeCsvCell(f.fecha),
+          sanitizeCsvCell(f.usuario),
+          sanitizeCsvCell(f.nombre),
+          sanitizeCsvCell(f.ingreso || ""),
+          sanitizeCsvCell(f.egreso || ""),
+          sanitizeCsvCell(f.duracion || "00:00"),
+          formatDecimalAR(f.horasDecimal),
+          sanitizeCsvCell(f.estado)
+        ].join(";"));
+      });
+
+      const csvContent = "\uFEFF" + lines.join("\r\n");
+      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `Reporte_Fichaje_El_Patron_${desde}_a_${hasta}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      showToast("Archivo CSV descargado correctamente.", "success");
+    }
+
+    /* ========================================================================
+       EVENT LISTENERS
+       ======================================================================== */
+    document.addEventListener("DOMContentLoaded", () => {
+      updateLiveClockAndStopwatch();
+      updateConnectionUI();
+
+      // 1. Login Form
+      document.getElementById("loginForm").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        if (checkClientLockoutState()) return;
+
+        const usuario = document.getElementById("loginUsuario").value.trim();
+        const pin = document.getElementById("loginPin").value.trim();
+        const btn = document.getElementById("btnLoginSubmit");
+
+        setAlert("loginAlert", "");
+        btn.disabled = true;
+
+        try {
+          const res = await apiCall("login", { usuario, pin });
+          if (res.ok) {
+            state.token = res.token;
+            state.usuario = res.usuario;
+            sessionStorage.setItem(STORAGE_KEY_SESSION, res.token);
+            sessionStorage.setItem(STORAGE_KEY_USER, JSON.stringify(res.usuario));
+            document.getElementById("loginPin").value = "";
+            applyUserSessionUI();
+            if (res.estado) {
+              renderEstadoFichaje(res.estado);
+            } else {
+              await loadEstadoFichaje();
+            }
+            switchView("fichar");
+            showToast(`¡Bienvenido, ${res.usuario.nombre}!`, "success");
+          } else {
+            if (res.code === "LOCKED_OUT") {
+              setClientLockout(res.retryAfterSeconds || 300);
+            } else {
+              setAlert("loginAlert", res.error || "Usuario o PIN incorrecto.", "error");
+            }
+          }
+        } finally {
+          if (!checkClientLockoutState()) {
+            btn.disabled = false;
+          }
+        }
+      });
+
+      // 2. Configurar Conexión Modal
+      const modalConfig = document.getElementById("modalConfig");
+      document.getElementById("btnOpenConfig").addEventListener("click", () => {
+        setAlert("configModalAlert", "");
+        document.getElementById("inputApiUrl").value = localStorage.getItem(STORAGE_KEY_API_URL) || "";
+        modalConfig.classList.add("open");
+      });
+
+      document.getElementById("btnCloseConfig").addEventListener("click", () => {
+        modalConfig.classList.remove("open");
+      });
+
+      document.getElementById("btnUseLocalDemo").addEventListener("click", () => {
+        localStorage.removeItem(STORAGE_KEY_API_URL);
+        document.getElementById("inputApiUrl").value = "";
+        updateConnectionUI();
+        modalConfig.classList.remove("open");
+        showToast("Modo Local de prueba activado.", "info");
+      });
+
+      document.getElementById("btnSaveConfig").addEventListener("click", () => {
+        const val = document.getElementById("inputApiUrl").value.trim();
+        if (!val) {
+          localStorage.removeItem(STORAGE_KEY_API_URL);
+          updateConnectionUI();
+          modalConfig.classList.remove("open");
+          showToast("Conexión configurada en Modo Local.", "info");
+          return;
+        }
+        if (!/^https:\/\/script\.google\.com\/macros\/s\/.+\/exec$/i.test(val) && !val.endsWith("/exec")) {
+          setAlert("configModalAlert", "La URL del Web App de Google Apps Script debe terminar en /exec", "error");
+          return;
+        }
+        localStorage.setItem(STORAGE_KEY_API_URL, val);
+        updateConnectionUI();
+        modalConfig.classList.remove("open");
+        showToast("URL de Google Apps Script guardada correctamente.", "success");
+      });
+
+      // 3. Navegación del Sidebar
+      document.querySelectorAll(".nav-item").forEach(btn => {
+        btn.addEventListener("click", () => {
+          switchView(btn.dataset.view);
+        });
+      });
+
+      // 4. Cerrar Sesión
+      document.getElementById("btnLogout").addEventListener("click", () => {
+        forceLogout();
+        showToast("Sesión cerrada correctamente.", "info");
+      });
+
+      // 5. Botones INGRESO / EGRESO / Actualizar
+      document.getElementById("btnMarcarIngreso").addEventListener("click", handleMarcarIngreso);
+      document.getElementById("btnMarcarEgreso").addEventListener("click", handleMarcarEgreso);
+      document.getElementById("btnRefreshEstado").addEventListener("click", loadEstadoFichaje);
+
+      // 6. Filtro Mis Horas
+      document.getElementById("misHorasFilterForm").addEventListener("submit", (e) => {
+        e.preventDefault();
+        loadMisHoras();
+      });
+
+      // 7. Crear Empleado
+      document.getElementById("btnRefreshEmpleados").addEventListener("click", loadEmpleados);
+      document.getElementById("crearEmpleadoForm").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        setAlert("crearEmpleadoAlert", "");
+        const nombre = document.getElementById("empNombre").value.trim();
+        const usuario = document.getElementById("empUsuario").value.trim().toLowerCase();
+        const pin = document.getElementById("empPin").value.trim();
+        const rol = document.getElementById("empRol").value;
+
+        const btn = document.getElementById("btnCrearEmpleadoSubmit");
+        btn.disabled = true;
+        try {
+          const res = await apiCall("crearEmpleado", { nombre, usuario, pin, rol });
+          if (res.ok) {
+            document.getElementById("crearEmpleadoForm").reset();
+            setAlert("crearEmpleadoAlert", res.mensaje, "success");
+            showToast(res.mensaje, "success");
+            await loadEmpleados();
+          } else {
+            setAlert("crearEmpleadoAlert", res.error || "No se pudo crear el empleado.", "error");
+          }
+        } finally {
+          btn.disabled = false;
+        }
+      });
+
+      // 8. Delegación de acciones en Empleados (Habilitar/Deshabilitar, Reset PIN, Forzar Egreso)
+      document.getElementById("view-empleados").addEventListener("click", async (e) => {
+        const btn = e.target.closest("button[data-action]");
+        if (!btn) return;
+        const action = btn.dataset.action;
+        const usuario = btn.dataset.usuario;
+        const nombre = btn.dataset.nombre || usuario;
+
+        if (action === "toggle-emp") {
+          const res = await apiCall("toggleEmpleado", { usuario });
+          if (res.ok) {
+            showToast(res.mensaje, "success");
+            await loadEmpleados();
+          } else {
+            showToast(res.error || "No se pudo cambiar el estado.", "error");
+          }
+        } else if (action === "reset-pin") {
+          document.getElementById("resetPinUsuario").value = usuario;
+          document.getElementById("resetPinInput").value = "";
+          document.getElementById("resetPinDesc").textContent = `Asigná un nuevo PIN numérico (4 a 8 dígitos) para ${nombre} (@${usuario}).`;
+          document.getElementById("modalResetPin").classList.add("open");
+        } else if (action === "forzar-egreso") {
+          const ingreso = btn.dataset.ingreso || "";
+          document.getElementById("forzarEgresoUsuario").value = usuario;
+          document.getElementById("forzarEgresoHora").value = "";
+          document.getElementById("forzarEgresoDesc").textContent =
+            `Vas a cerrar el turno abierto de ${nombre} (@${usuario}), iniciado a las ${ingreso} hs.`;
+          document.getElementById("modalForzarEgreso").classList.add("open");
+        }
+      });
+
+      // Modal Reset PIN
+      document.getElementById("btnCancelResetPin").addEventListener("click", () => {
+        document.getElementById("modalResetPin").classList.remove("open");
+      });
+
+      document.getElementById("resetPinForm").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const usuario = document.getElementById("resetPinUsuario").value;
+        const pin = document.getElementById("resetPinInput").value.trim();
+        const res = await apiCall("resetPin", { usuario, pin });
+        if (res.ok) {
+          document.getElementById("modalResetPin").classList.remove("open");
+          showToast(res.mensaje, "success");
+        } else {
+          showToast(res.error || "No se pudo cambiar el PIN.", "error");
+        }
+      });
+
+      // Modal Forzar Egreso
+      document.getElementById("btnCancelForzarEgreso").addEventListener("click", () => {
+        document.getElementById("modalForzarEgreso").classList.remove("open");
+      });
+
+      document.getElementById("forzarEgresoForm").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const usuario = document.getElementById("forzarEgresoUsuario").value;
+        const hora = document.getElementById("forzarEgresoHora").value.trim();
+        const res = await apiCall("egresoForzado", { usuario, hora });
+        if (res.ok) {
+          document.getElementById("modalForzarEgreso").classList.remove("open");
+          showToast(res.mensaje, "success");
+          await loadEmpleados();
+          if (state.usuario && state.usuario.usuario === usuario) {
+            await loadEstadoFichaje();
+          }
+        } else {
+          showToast(res.error || "No se pudo forzar el egreso.", "error");
+        }
+      });
+
+      // 9. Reporte y CSV
+      document.getElementById("reporteFilterForm").addEventListener("submit", (e) => {
+        e.preventDefault();
+        loadReporte();
+      });
+      document.getElementById("btnDescargarCSV").addEventListener("click", descargarReporteCSV);
+
+      // 10. Mi cuenta (Cambiar propio PIN)
+      document.getElementById("cambiarPinForm").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        setAlert("cambiarPinAlert", "");
+        const pinActual = document.getElementById("pinActualInput").value.trim();
+        const pinNuevo = document.getElementById("pinNuevoInput").value.trim();
+        const pinConfirm = document.getElementById("pinConfirmInput").value.trim();
+
+        if (pinNuevo !== pinConfirm) {
+          setAlert("cambiarPinAlert", "El nuevo PIN y su confirmación no coinciden.", "error");
+          return;
+        }
+
+        const btn = document.getElementById("btnCambiarPinSubmit");
+        btn.disabled = true;
+        try {
+          const res = await apiCall("cambiarPin", { pinActual, pinNuevo });
+          if (res.ok) {
+            document.getElementById("cambiarPinForm").reset();
+            setAlert("cambiarPinAlert", res.mensaje, "success");
+            showToast(res.mensaje, "success");
+          } else {
+            setAlert("cambiarPinAlert", res.error || "No se pudo actualizar el PIN.", "error");
+          }
+        } finally {
+          btn.disabled = false;
+        }
+      });
+
+      // Si hay URL de Google Sheets activa y quedó un token local viejo (loc_), limpiarlo
+      if (getEffectiveApiUrl() && state.token && state.token.startsWith("loc_")) {
+        state.token = "";
+        state.usuario = null;
+        sessionStorage.removeItem(STORAGE_KEY_SESSION);
+        sessionStorage.removeItem(STORAGE_KEY_USER);
+      }
+
+      // Restaurar sesión si ya había token en sessionStorage
+      if (state.token && state.usuario) {
+        applyUserSessionUI();
+        loadEstadoFichaje();
+      } else {
+        applyUserSessionUI();
+      }
+    });
+  </script>
+</body>
+</html>
