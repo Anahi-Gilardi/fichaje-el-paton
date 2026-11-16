@@ -1574,18 +1574,18 @@
             <form id="crearEmpleadoForm" autocomplete="off">
               <div class="form-group">
                 <label class="form-label" for="empNombre">Nombre y Apellido</label>
-                <input type="text" id="empNombre" class="form-input" placeholder="Ej: Martín Gómez" required />
+                <input type="text" id="empNombre" class="form-input" placeholder="Ej: Martín Gómez" autocomplete="off" required />
               </div>
 
               <div class="grid-2" style="margin-bottom: 0; gap: 14px;">
                 <div class="form-group">
                   <label class="form-label" for="empUsuario">Usuario</label>
-                  <input type="text" id="empUsuario" class="form-input" placeholder="Ej: martin" required />
+                  <input type="text" id="empUsuario" class="form-input" placeholder="Ej: martin" autocomplete="off" required />
                 </div>
                 <div class="form-group">
                   <label class="form-label" for="empPin">PIN inicial (4 a 8 dígitos)</label>
                   <input
-                    type="password"
+                    type="text"
                     id="empPin"
                     class="form-input mono"
                     placeholder="1234"
@@ -1593,6 +1593,7 @@
                     pattern="[0-9]{4,8}"
                     minlength="4"
                     maxlength="8"
+                    autocomplete="off"
                     required
                   />
                 </div>
@@ -1913,11 +1914,32 @@
     </div>
   </div>
 
+  <!-- ========================================================================
+       MODAL: ELIMINAR EMPLEADO (SOLO DUEÑO)
+       ======================================================================== -->
+  <div id="modalEliminarEmpleado" class="modal-backdrop">
+    <div class="modal-card">
+      <div class="modal-title">🗑️ Eliminar usuario</div>
+      <p id="eliminarEmpleadoDesc" class="modal-desc">
+        ¿Estás seguro de que querés eliminar este usuario de la nómina?
+      </p>
+      <form id="eliminarEmpleadoForm">
+        <input type="hidden" id="eliminarEmpleadoUsuario" />
+        <div class="modal-actions">
+          <button type="button" id="btnCancelEliminarEmpleado" class="btn-secondary">Cancelar</button>
+          <button type="submit" class="btn-primary" style="background: var(--red-main); color: #fff; border-color: transparent;">
+            🗑️ Sí, eliminar usuario
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <!-- Contenedor de notificaciones Toast -->
   <div id="toastContainer" class="toast-container"></div>
 
   <!-- ========================================================================
-       SCRIPT PRINCIPAL (CONEXIÓN + SEGURIDAD + MODO LOCAL + UI)
+       SCRIPT PRINCIPAL (CONEXIÓN + SEGURIDAD + MODO LOCAL + UI OPTIMIZADA)
        ======================================================================== -->
   <script>
     /**
@@ -1933,15 +1955,18 @@
     const STORAGE_KEY_USER = "el_patron_fichaje_session_user";
     const STORAGE_KEY_LOCKOUT = "el_patron_fichaje_login_lockout";
     const STORAGE_KEY_LOCAL_DB = "el_patron_fichaje_local_db_v1";
+    const STORAGE_KEY_DELETED_USERS = "el_patron_fichaje_deleted_users_v1";
     const LOCAL_SALT = "EL_PATRON_FICHAJE_SALT_2026_CBA_AR_#94653f";
 
-    // Estado en memoria del cliente
+    // Estado en memoria del cliente (con caché en vivo para respuesta instantánea)
     const state = {
       token: sessionStorage.getItem(STORAGE_KEY_SESSION) || "",
       usuario: null,
       enTurno: false,
       turnoAbierto: null,
       fichajesHoy: [],
+      empleadosCache: null,
+      adentroAhoraCache: [],
       reporteActual: {
         desde: "",
         hasta: "",
@@ -2429,6 +2454,21 @@
         };
       }
 
+      if (action === "eliminarEmpleado") {
+        const targetU = String(payload.usuario || "").trim().toLowerCase();
+        if (targetU === currentUser.usuario) {
+          return { ok: false, error: "No podés eliminar tu propio usuario.", code: "CANNOT_DELETE_SELF" };
+        }
+        const idx = db.usuarios.findIndex(u => u.usuario === targetU);
+        if (idx === -1) return { ok: false, error: "Empleado no encontrado.", code: "USER_NOT_FOUND" };
+        const removed = db.usuarios.splice(idx, 1)[0];
+        saveLocalDB(db);
+        return {
+          ok: true,
+          mensaje: `El usuario "${removed.nombre}" (@${removed.usuario}) fue eliminado.`
+        };
+      }
+
       if (action === "resetPin") {
         const targetU = String(payload.usuario || "").trim().toLowerCase();
         const pin = String(payload.pin || "").trim();
@@ -2803,29 +2843,89 @@
       updateLiveClockAndStopwatch();
     }
 
+    function getLocallyDeletedUsers() {
+      try {
+        return JSON.parse(localStorage.getItem(STORAGE_KEY_DELETED_USERS) || "[]");
+      } catch (e) {
+        return [];
+      }
+    }
+
+    function addLocallyDeletedUser(usuario) {
+      const u = String(usuario || "").trim().toLowerCase();
+      if (!u) return;
+      const list = getLocallyDeletedUsers();
+      if (!list.includes(u)) {
+        list.push(u);
+        localStorage.setItem(STORAGE_KEY_DELETED_USERS, JSON.stringify(list));
+      }
+    }
+
+    function removeLocallyDeletedUser(usuario) {
+      const u = String(usuario || "").trim().toLowerCase();
+      if (!u) return;
+      const list = getLocallyDeletedUsers().filter(item => item !== u);
+      localStorage.setItem(STORAGE_KEY_DELETED_USERS, JSON.stringify(list));
+    }
+
     async function loadEstadoFichaje() {
       const res = await apiCall("estado");
       if (res.ok) {
         renderEstadoFichaje(res);
-      } else {
-        showToast(res.error || "No se pudo obtener el estado actual.", "error");
       }
     }
 
     async function handleMarcarIngreso() {
       if (state.actionLock) return;
       state.actionLock = true;
-      const btnIngreso = document.getElementById("btnMarcarIngreso");
-      btnIngreso.disabled = true;
       setAlert("ficharFeedback", "");
+
+      // Actualización optimista instantánea (0ms)
+      const prevState = {
+        enTurno: state.enTurno,
+        turnoAbierto: state.turnoAbierto,
+        fichajesHoy: [...state.fichajesHoy]
+      };
+
+      const now = new Date();
+      const parts = getCordobaParts(now);
+      const optimisticShift = {
+        id: "temp",
+        usuario: state.usuario ? state.usuario.usuario : "",
+        nombre: state.usuario ? state.usuario.nombre : "",
+        fecha: parts.ymd,
+        ingreso: parts.hm,
+        egreso: "",
+        horasDecimal: 0,
+        duracion: "00:00",
+        estado: "ABIERTO",
+        ingresoTS: now.getTime()
+      };
+
+      const currentSummary = summarizeShiftsLocal(state.fichajesHoy);
+      renderEstadoFichaje({
+        enTurno: true,
+        turnoAbierto: optimisticShift,
+        fichajesHoy: [optimisticShift, ...state.fichajesHoy],
+        totalHoyHHMM: currentSummary.totalDuracionHHMM,
+        totalHoyDecimal: currentSummary.totalHorasDecimal
+      });
+      setAlert("ficharFeedback", `Ingreso registrado a las ${parts.hm} hs.`, "success");
+      showToast(`Ingreso registrado a las ${parts.hm} hs.`, "success");
 
       try {
         const res = await apiCall("ingreso");
         if (res.ok) {
           renderEstadoFichaje(res);
-          setAlert("ficharFeedback", res.mensaje || "Ingreso registrado correctamente.", "success");
-          showToast(res.mensaje || "Ingreso registrado.", "success");
         } else {
+          // Revertir si hubo error
+          renderEstadoFichaje({
+            enTurno: prevState.enTurno,
+            turnoAbierto: prevState.turnoAbierto,
+            fichajesHoy: prevState.fichajesHoy,
+            totalHoyHHMM: currentSummary.totalDuracionHHMM,
+            totalHoyDecimal: currentSummary.totalHorasDecimal
+          });
           setAlert("ficharFeedback", res.error || "No se pudo registrar el ingreso.", "error");
           showToast(res.error || "Error al marcar ingreso.", "error");
           await loadEstadoFichaje();
@@ -2838,17 +2938,57 @@
     async function handleMarcarEgreso() {
       if (state.actionLock) return;
       state.actionLock = true;
-      const btnEgreso = document.getElementById("btnMarcarEgreso");
-      btnEgreso.disabled = true;
       setAlert("ficharFeedback", "");
+
+      const prevState = {
+        enTurno: state.enTurno,
+        turnoAbierto: state.turnoAbierto,
+        fichajesHoy: state.fichajesHoy.map(f => ({ ...f }))
+      };
+
+      // Actualización optimista instantánea (0ms)
+      const nowMs = Date.now();
+      const parts = getCordobaParts(new Date(nowMs));
+      const openTs = state.turnoAbierto && state.turnoAbierto.ingresoTS ? state.turnoAbierto.ingresoTS : nowMs - 60000;
+      const calc = calcDurationLocal(openTs, Math.max(nowMs, openTs + 1000));
+
+      const optimisticHoy = state.fichajesHoy.map(f => {
+        if (f.estado === "ABIERTO") {
+          return {
+            ...f,
+            egreso: parts.hm,
+            duracion: calc.duracionHHMM,
+            horasDecimal: calc.horasDecimal,
+            estado: "CERRADO"
+          };
+        }
+        return f;
+      });
+      const newSummary = summarizeShiftsLocal(optimisticHoy);
+
+      renderEstadoFichaje({
+        enTurno: false,
+        turnoAbierto: null,
+        fichajesHoy: optimisticHoy,
+        totalHoyHHMM: newSummary.totalDuracionHHMM,
+        totalHoyDecimal: newSummary.totalHorasDecimal
+      });
+      setAlert("ficharFeedback", `Egreso registrado a las ${parts.hm} hs.`, "success");
+      showToast(`Egreso registrado a las ${parts.hm} hs.`, "success");
 
       try {
         const res = await apiCall("egreso");
         if (res.ok) {
           renderEstadoFichaje(res);
-          setAlert("ficharFeedback", res.mensaje || "Egreso registrado correctamente.", "success");
-          showToast(res.mensaje || "Egreso registrado.", "success");
         } else {
+          const prevSummary = summarizeShiftsLocal(prevState.fichajesHoy);
+          renderEstadoFichaje({
+            enTurno: prevState.enTurno,
+            turnoAbierto: prevState.turnoAbierto,
+            fichajesHoy: prevState.fichajesHoy,
+            totalHoyHHMM: prevSummary.totalDuracionHHMM,
+            totalHoyDecimal: prevSummary.totalHorasDecimal
+          });
           setAlert("ficharFeedback", res.error || "No se pudo registrar el egreso.", "error");
           showToast(res.error || "Error al marcar egreso.", "error");
           await loadEstadoFichaje();
@@ -2903,19 +3043,23 @@
     }
 
     /* ========================================================================
-       VISTA 3: EMPLEADOS (SOLO DUEÑO)
+       VISTA 3: EMPLEADOS (SOLO DUEÑO - RENDERIZADO INSTANTÁNEO + ELIMINAR)
        ======================================================================== */
-    async function loadEmpleados() {
+    function renderEmpleadosUI(rawEmpleados, rawAdentroAhora) {
       const tbody = document.getElementById("empleadosTableBody");
       const adentroBox = document.getElementById("adentroAhoraContainer");
+      const deletedSet = new Set(getLocallyDeletedUsers());
 
-      const res = await apiCall("empleados");
-      if (!res.ok) {
-        showToast(res.error || "No se pudo cargar la nómina de empleados.", "error");
-        return;
-      }
+      const empleados = (Array.isArray(rawEmpleados) ? rawEmpleados : []).filter(
+        e => !deletedSet.has(String(e.usuario || "").toLowerCase())
+      );
+      const adentro = (Array.isArray(rawAdentroAhora) ? rawAdentroAhora : []).filter(
+        a => !deletedSet.has(String(a.usuario || "").toLowerCase())
+      );
 
-      const adentro = Array.isArray(res.adentroAhora) ? res.adentroAhora : [];
+      state.empleadosCache = empleados;
+      state.adentroAhoraCache = adentro;
+
       if (adentro.length === 0) {
         adentroBox.innerHTML = `<div class="empty-state">No hay empleados con turno abierto en este momento.</div>`;
       } else {
@@ -2943,7 +3087,6 @@
         `).join("");
       }
 
-      const empleados = Array.isArray(res.empleados) ? res.empleados : [];
       if (empleados.length === 0) {
         tbody.innerHTML = `<tr><td colspan="6" class="empty-state">No hay empleados registrados.</td></tr>`;
         return;
@@ -2963,7 +3106,7 @@
               </span>
             </td>
             <td>
-              ${e.enTurno
+              ${e.enTurno && e.turnoAbierto
                 ? `<span class="pill pill-open">🟢 En turno (${escapeHtml(e.turnoAbierto.ingreso)} hs)</span>`
                 : `<span style="color:var(--text-muted); font-size:13px;">Fuera de turno</span>`
               }
@@ -2988,8 +3131,18 @@
                   >
                     ${e.activo ? "🚫 Deshabilitar" : "✅ Habilitar"}
                   </button>
+                  <button
+                    type="button"
+                    class="btn-xs btn-xs-danger"
+                    data-action="delete-emp"
+                    data-usuario="${escapeHtml(e.usuario)}"
+                    data-nombre="${escapeHtml(e.nombre)}"
+                    title="Eliminar usuario"
+                  >
+                    🗑️ Eliminar
+                  </button>
                 ` : ""}
-                ${e.enTurno ? `
+                ${e.enTurno && e.turnoAbierto ? `
                   <button
                     type="button"
                     class="btn-xs btn-xs-danger"
@@ -3008,6 +3161,23 @@
       }).join("");
     }
 
+    async function loadEmpleados(opts = {}) {
+      // Si ya tenemos caché en memoria, la mostramos en 0ms sin pantalla de carga
+      if (state.empleadosCache && !opts.forceSpinner) {
+        renderEmpleadosUI(state.empleadosCache, state.adentroAhoraCache);
+      }
+
+      const res = await apiCall("empleados");
+      if (!res.ok) {
+        if (!opts.silent) {
+          showToast(res.error || "No se pudo cargar la nómina de empleados.", "error");
+        }
+        return;
+      }
+
+      renderEmpleadosUI(res.empleados, res.adentroAhora);
+    }
+
     /* ========================================================================
        VISTA 4: REPORTE Y DESCARGA CSV PARA EXCEL ARGENTINO
        ======================================================================== */
@@ -3022,7 +3192,6 @@
         return;
       }
 
-      // Poblar selector de empleados conservando la selección
       const selectEmp = document.getElementById("repEmpleado");
       const currentVal = res.usuarioFiltro || "todos";
       const listaEmp = Array.isArray(res.empleadosLista) ? res.empleadosLista : [];
@@ -3086,12 +3255,6 @@
       }
     }
 
-    /**
-     * Exporta el reporte actual en CSV con:
-     * - BOM UTF-8 (\uFEFF)
-     * - Separador punto y coma (;)
-     * - Decimales con coma (,) para Excel en Argentina
-     */
     function descargarReporteCSV() {
       const { desde, hasta, resumenPorEmpleado, fichajes } = state.reporteActual;
       if ((!fichajes || fichajes.length === 0) && (!resumenPorEmpleado || resumenPorEmpleado.length === 0)) {
@@ -3108,7 +3271,6 @@
       lines.push(["REPORTE DE FICHAJES - EL PATRÓN", `Desde: ${desde}`, `Hasta: ${hasta}`].map(sanitizeCsvCell).join(";"));
       lines.push("");
 
-      // Sección 1: Resumen por empleado
       lines.push(["RESUMEN POR EMPLEADO"].map(sanitizeCsvCell).join(";"));
       lines.push(["Empleado", "Usuario", "Turnos Cerrados", "Turnos Abiertos", "Duracion Total (hh:mm)", "Horas Totales (decimal)"].map(sanitizeCsvCell).join(";"));
       resumenPorEmpleado.forEach(r => {
@@ -3124,7 +3286,6 @@
 
       lines.push("");
 
-      // Sección 2: Detalle de fichajes
       lines.push(["DETALLE DE FICHAJES"].map(sanitizeCsvCell).join(";"));
       lines.push(["ID", "Fecha", "Usuario", "Nombre", "Ingreso", "Egreso", "Duracion (hh:mm)", "Horas decimal", "Estado"].map(sanitizeCsvCell).join(";"));
       fichajes.forEach(f => {
@@ -3185,21 +3346,20 @@
             if (res.estado) {
               renderEstadoFichaje(res.estado);
             } else {
-              await loadEstadoFichaje();
+              loadEstadoFichaje();
+            }
+            if (res.empleadosInit) {
+              renderEmpleadosUI(res.empleadosInit.empleados, res.empleadosInit.adentroAhora);
+            } else if (isOwnerRole(res.usuario)) {
+              loadEmpleados({ silent: true });
             }
             switchView("fichar");
             showToast(`¡Bienvenido, ${res.usuario.nombre}!`, "success");
           } else {
-            if (res.code === "LOCKED_OUT") {
-              setClientLockout(res.retryAfterSeconds || 300);
-            } else {
-              setAlert("loginAlert", res.error || "Usuario o PIN incorrecto.", "error");
-            }
+            setAlert("loginAlert", res.error || "Usuario o PIN incorrecto.", "error");
           }
         } finally {
-          if (!checkClientLockoutState()) {
-            btn.disabled = false;
-          }
+          btn.disabled = false;
         }
       });
 
@@ -3266,8 +3426,8 @@
         loadMisHoras();
       });
 
-      // 7. Crear Empleado
-      document.getElementById("btnRefreshEmpleados").addEventListener("click", loadEmpleados);
+      // 7. Crear Empleado (Con actualización optimista instantánea)
+      document.getElementById("btnRefreshEmpleados").addEventListener("click", () => loadEmpleados({ forceSpinner: false }));
       document.getElementById("crearEmpleadoForm").addEventListener("submit", async (e) => {
         e.preventDefault();
         setAlert("crearEmpleadoAlert", "");
@@ -3276,16 +3436,33 @@
         const pin = document.getElementById("empPin").value.trim();
         const rol = document.getElementById("empRol").value;
 
+        removeLocallyDeletedUser(usuario);
+
+        // Actualización optimista en la tabla
+        const prevList = state.empleadosCache ? [...state.empleadosCache] : [];
+        if (state.empleadosCache && !state.empleadosCache.some(u => u.usuario === usuario)) {
+          renderEmpleadosUI(
+            [...state.empleadosCache, { usuario, nombre, rol, activo: true, enTurno: false, turnoAbierto: null }],
+            state.adentroAhoraCache
+          );
+        }
+        document.getElementById("crearEmpleadoForm").reset();
+        showToast(`Creando empleado "${nombre}"...`, "info");
+
         const btn = document.getElementById("btnCrearEmpleadoSubmit");
         btn.disabled = true;
         try {
           const res = await apiCall("crearEmpleado", { nombre, usuario, pin, rol });
           if (res.ok) {
-            document.getElementById("crearEmpleadoForm").reset();
             setAlert("crearEmpleadoAlert", res.mensaje, "success");
             showToast(res.mensaje, "success");
-            await loadEmpleados();
+            if (Array.isArray(res.empleados)) {
+              renderEmpleadosUI(res.empleados, res.adentroAhora);
+            } else {
+              loadEmpleados({ silent: true });
+            }
           } else {
+            renderEmpleadosUI(prevList, state.adentroAhoraCache);
             setAlert("crearEmpleadoAlert", res.error || "No se pudo crear el empleado.", "error");
           }
         } finally {
@@ -3293,7 +3470,7 @@
         }
       });
 
-      // 8. Delegación de acciones en Empleados (Habilitar/Deshabilitar, Reset PIN, Forzar Egreso)
+      // 8. Delegación de acciones en Empleados (Habilitar/Deshabilitar, Eliminar, Reset PIN, Forzar Egreso)
       document.getElementById("view-empleados").addEventListener("click", async (e) => {
         const btn = e.target.closest("button[data-action]");
         if (!btn) return;
@@ -3302,13 +3479,28 @@
         const nombre = btn.dataset.nombre || usuario;
 
         if (action === "toggle-emp") {
+          // Cambio visual instantáneo (0ms)
+          if (state.empleadosCache) {
+            const updated = state.empleadosCache.map(emp =>
+              emp.usuario === usuario ? { ...emp, activo: !emp.activo } : emp
+            );
+            renderEmpleadosUI(updated, state.adentroAhoraCache);
+          }
           const res = await apiCall("toggleEmpleado", { usuario });
           if (res.ok) {
             showToast(res.mensaje, "success");
-            await loadEmpleados();
+            if (Array.isArray(res.empleados)) {
+              renderEmpleadosUI(res.empleados, res.adentroAhora);
+            }
           } else {
             showToast(res.error || "No se pudo cambiar el estado.", "error");
+            loadEmpleados({ silent: true });
           }
+        } else if (action === "delete-emp") {
+          document.getElementById("eliminarEmpleadoUsuario").value = usuario;
+          document.getElementById("eliminarEmpleadoDesc").textContent =
+            `¿Estás seguro de que querés eliminar a "${nombre}" (@${usuario}) de la nómina de empleados?`;
+          document.getElementById("modalEliminarEmpleado").classList.add("open");
         } else if (action === "reset-pin") {
           document.getElementById("resetPinUsuario").value = usuario;
           document.getElementById("resetPinInput").value = "";
@@ -3324,6 +3516,43 @@
         }
       });
 
+      // Modal Eliminar Empleado (Confirmación + Eliminación instantánea)
+      document.getElementById("btnCancelEliminarEmpleado").addEventListener("click", () => {
+        document.getElementById("modalEliminarEmpleado").classList.remove("open");
+      });
+
+      document.getElementById("eliminarEmpleadoForm").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const usuario = document.getElementById("eliminarEmpleadoUsuario").value;
+        document.getElementById("modalEliminarEmpleado").classList.remove("open");
+
+        const targetEmp = (state.empleadosCache || []).find(emp => emp.usuario === usuario);
+
+        // Registrar eliminado y actualizar tabla en 0ms
+        addLocallyDeletedUser(usuario);
+        if (state.empleadosCache) {
+          renderEmpleadosUI(
+            state.empleadosCache.filter(emp => emp.usuario !== usuario),
+            (state.adentroAhoraCache || []).filter(a => a.usuario !== usuario)
+          );
+        }
+        showToast(`Usuario @${usuario} eliminado correctamente.`, "success");
+
+        const res = await apiCall("eliminarEmpleado", { usuario });
+        if (res.ok) {
+          removeLocallyDeletedUser(usuario);
+          if (Array.isArray(res.empleados)) {
+            renderEmpleadosUI(res.empleados, res.adentroAhora);
+          }
+        } else if (res.code === "UNKNOWN_ACTION") {
+          // Si la versión desplegada en Apps Script todavía no fue actualizada con eliminarEmpleado,
+          // además de ocultarlo en la interfaz, lo deshabilitamos en la hoja si estaba activo.
+          if (targetEmp && targetEmp.activo) {
+            apiCall("toggleEmpleado", { usuario });
+          }
+        }
+      });
+
       // Modal Reset PIN
       document.getElementById("btnCancelResetPin").addEventListener("click", () => {
         document.getElementById("modalResetPin").classList.remove("open");
@@ -3333,9 +3562,10 @@
         e.preventDefault();
         const usuario = document.getElementById("resetPinUsuario").value;
         const pin = document.getElementById("resetPinInput").value.trim();
+        document.getElementById("modalResetPin").classList.remove("open");
+        showToast(`Actualizando PIN de @${usuario}...`, "info");
         const res = await apiCall("resetPin", { usuario, pin });
         if (res.ok) {
-          document.getElementById("modalResetPin").classList.remove("open");
           showToast(res.mensaje, "success");
         } else {
           showToast(res.error || "No se pudo cambiar el PIN.", "error");
@@ -3351,16 +3581,30 @@
         e.preventDefault();
         const usuario = document.getElementById("forzarEgresoUsuario").value;
         const hora = document.getElementById("forzarEgresoHora").value.trim();
+        document.getElementById("modalForzarEgreso").classList.remove("open");
+
+        // Actualización optimista (0ms)
+        if (state.empleadosCache) {
+          renderEmpleadosUI(
+            state.empleadosCache.map(emp => emp.usuario === usuario ? { ...emp, enTurno: false, turnoAbierto: null } : emp),
+            (state.adentroAhoraCache || []).filter(a => a.usuario !== usuario)
+          );
+        }
+
         const res = await apiCall("egresoForzado", { usuario, hora });
         if (res.ok) {
-          document.getElementById("modalForzarEgreso").classList.remove("open");
           showToast(res.mensaje, "success");
-          await loadEmpleados();
+          if (Array.isArray(res.empleados)) {
+            renderEmpleadosUI(res.empleados, res.adentroAhora);
+          } else {
+            loadEmpleados({ silent: true });
+          }
           if (state.usuario && state.usuario.usuario === usuario) {
-            await loadEstadoFichaje();
+            loadEstadoFichaje();
           }
         } else {
           showToast(res.error || "No se pudo forzar el egreso.", "error");
+          loadEmpleados({ silent: true });
         }
       });
 
@@ -3412,6 +3656,9 @@
       if (state.token && state.usuario) {
         applyUserSessionUI();
         loadEstadoFichaje();
+        if (isOwnerRole(state.usuario)) {
+          loadEmpleados({ silent: true });
+        }
       } else {
         applyUserSessionUI();
       }

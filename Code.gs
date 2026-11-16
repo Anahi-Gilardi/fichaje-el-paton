@@ -1,31 +1,34 @@
 /**
  * EL PATRÓN — MÓDULO DE FICHAJE (Control de Horarios)
- * Backend para Google Apps Script vinculado a Google Sheets.
+ * Backend optimizado de alta velocidad para Google Apps Script + Google Sheets.
  * Zona horaria fija: America/Argentina/Cordoba
- *
- * INSTRUCCIONES RÁPIDAS:
- * 1. En el editor de Apps Script, seleccioná la función "setup" arriba y hacé clic en "Ejecutar".
- * 2. Autorizá los permisos cuando Google te lo pida.
- * 3. Hacé clic en "Implementar" > "Nueva implementación" > Tipo: "Aplicación web".
- * 4. Ejecutar como: "Yo" | Quién tiene acceso: "Cualquier persona".
- * 5. Copiá la URL que termina en /exec y pegala en el frontend (index.html).
  */
 
 const TZ = 'America/Argentina/Cordoba';
-const SALT = 'EL_PATRON_FICHAJE_SALT_2026_CBA_AR_#94653f'; // Podés cambiar este SALT antes de correr setup()
+const SALT = 'EL_PATRON_FICHAJE_SALT_2026_CBA_AR_#94653f';
 const SESSION_TTL_SECONDS = 21600; // 6 horas (6 * 60 * 60)
-const MAX_LOGIN_ATTEMPTS = 5;
-const LOCKOUT_SECONDS = 300; // 5 minutos (5 * 60)
 
 const SHEET_USUARIOS = 'Usuarios';
 const SHEET_FICHAJES = 'Fichajes';
+
+// Caché en memoria durante la ejecución de una petición
+let _ssCache = null;
+let _shUsuariosCache = null;
+let _shFichajesCache = null;
+
+function getSS_() {
+  if (!_ssCache) {
+    _ssCache = SpreadsheetApp.getActiveSpreadsheet();
+  }
+  return _ssCache;
+}
 
 /**
  * Inicializa la planilla creando las hojas "Usuarios" y "Fichajes"
  * y el usuario inicial: dueno / PIN 1234 (rol: dueño).
  */
 function setup() {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ss = getSS_();
   if (!ss) {
     throw new Error('Este script debe estar vinculado a una Google Sheet (Extensiones > Apps Script).');
   }
@@ -51,14 +54,14 @@ function setup() {
     shUsuarios.setFrozenRows(1);
   }
 
-  // Verificar si existen los usuarios iniciales "dueno" y "mozo"
   const usuariosData = shUsuarios.getDataRange().getValues();
   let existeDueno = false;
-  let existeMozo = false;
   for (let i = 1; i < usuariosData.length; i++) {
     const uRow = String(usuariosData[i][0]).trim().toLowerCase();
-    if (uRow === 'dueno') existeDueno = true;
-    if (uRow === 'mozo') existeMozo = true;
+    if (uRow === 'dueno') {
+      existeDueno = true;
+      break;
+    }
   }
 
   const ahoraStr = formatNowDateTime_();
@@ -66,26 +69,13 @@ function setup() {
   if (!existeDueno) {
     const pinHash = hashPin_('1234', 'dueno');
     const nextRow = shUsuarios.getLastRow() + 1;
-    shUsuarios.getRange(nextRow, 1, 1, 6).setNumberFormat('@');
-    shUsuarios.getRange(nextRow, 1, 1, 6).setValues([[
+    const rng = shUsuarios.getRange(nextRow, 1, 1, 6);
+    rng.setNumberFormat('@');
+    rng.setValues([[
       'dueno',
       'Dueño El Patrón',
       'dueño',
       pinHash,
-      'SI',
-      ahoraStr
-    ]]);
-  }
-
-  if (!existeMozo) {
-    const pinHashMozo = hashPin_('1234', 'mozo');
-    const nextRow = shUsuarios.getLastRow() + 1;
-    shUsuarios.getRange(nextRow, 1, 1, 6).setNumberFormat('@');
-    shUsuarios.getRange(nextRow, 1, 1, 6).setValues([[
-      'mozo',
-      'Martín Gómez (Mozo)',
-      'empleado',
-      pinHashMozo,
       'SI',
       ahoraStr
     ]]);
@@ -118,6 +108,10 @@ function setup() {
     shFichajes.setFrozenRows(1);
   }
 
+  _shUsuariosCache = shUsuarios;
+  _shFichajesCache = shFichajes;
+  invalidateUsersCache_();
+
   Logger.log('Setup completado con éxito. Usuario inicial: dueno / PIN: 1234');
   return 'Setup completado con éxito. Usuario inicial: dueno / PIN: 1234';
 }
@@ -135,7 +129,7 @@ function doGet() {
     ok: true,
     app: 'El Patrón · Módulo de Fichaje',
     timezone: TZ,
-    mensaje: 'El servidor de fichaje está activo y las hojas Usuarios y Fichajes fueron inicializadas correctamente.'
+    mensaje: 'El servidor de fichaje está activo y las hojas Usuarios y Fichajes están listas.'
   });
 }
 
@@ -161,23 +155,20 @@ function doPost(e) {
       return errorResponse_('Falta especificar la acción (action).', 'MISSING_ACTION');
     }
 
-    // Acción pública: login
     if (action === 'login') {
       return handleLogin_(body);
     }
 
-    // Todas las demás acciones requieren token de sesión válido
     const token = String(body.token || '').trim();
     const session = getSession_(token);
     if (!session) {
       return errorResponse_('Tu sesión expiró o no es válida. Volvé a iniciar sesión.', 'UNAUTHORIZED');
     }
 
-    // Revalidar que el usuario siga activo en la hoja
-    const currentUser = findUserByUsername_(session.usuario);
+    const currentUser = findUserByUsernameFast_(session.usuario);
     if (!currentUser || !currentUser.activo) {
       if (token) CacheService.getScriptCache().remove('SESSION_' + token);
-      return errorResponse_('Tu usuario fue deshabilitado. Consultá con el dueño.', 'USER_DISABLED');
+      return errorResponse_('Tu usuario fue deshabilitado o eliminado. Consultá con el dueño.', 'USER_DISABLED');
     }
 
     switch (action) {
@@ -209,6 +200,10 @@ function doPost(e) {
         if (!isDueno_(currentUser)) return forbiddenResponse_();
         return handleToggleEmpleado_(currentUser, body);
 
+      case 'eliminarEmpleado':
+        if (!isDueno_(currentUser)) return forbiddenResponse_();
+        return handleEliminarEmpleado_(currentUser, body);
+
       case 'resetPin':
         if (!isDueno_(currentUser)) return forbiddenResponse_();
         return handleResetPin_(body);
@@ -230,7 +225,7 @@ function doPost(e) {
 }
 
 /* ==========================================================================
- * MANEJADORES DE ACCIONES
+ * MANEJADORES DE ACCIONES (OPTIMIZADOS)
  * ========================================================================== */
 
 /**
@@ -247,10 +242,7 @@ function handleLogin_(body) {
     return errorResponse_('El PIN debe tener entre 4 y 8 dígitos numéricos.', 'INVALID_PIN_FORMAT');
   }
 
-  ensureSheetsExist_();
-  const user = findUserByUsername_(usuarioInput);
-
-  // Verificar existencia y PIN (soportando hash con usuario y hash simple con SALT)
+  const user = findUserByUsernameFast_(usuarioInput);
   const expectedHashUser = hashPin_(pinInput, usuarioInput);
   const expectedHashPlain = hashPinLegacy_(pinInput);
   const pinValido = user && (user.pinHash === expectedHashUser || user.pinHash === expectedHashPlain);
@@ -277,7 +269,14 @@ function handleLogin_(body) {
   };
   cache.put('SESSION_' + token, JSON.stringify(sessionData), SESSION_TTL_SECONDS);
 
-  const estadoData = buildEstadoUsuario_(user);
+  const shifts = getAllShifts_();
+  const estadoData = buildEstadoUsuarioFromShifts_(user, shifts);
+
+  // Si es dueño, devolvemos también la nómina inicial para que la pestaña Empleados abra al instante
+  let empleadosInit = null;
+  if (isDueno_(user)) {
+    empleadosInit = buildEmpleadosPayload_(getAllUsers_(), shifts);
+  }
 
   return jsonResponse_({
     ok: true,
@@ -287,16 +286,18 @@ function handleLogin_(body) {
       nombre: user.nombre,
       rol: user.rol
     },
-    estado: estadoData
+    estado: estadoData,
+    empleadosInit: empleadosInit
   });
 }
 
 /**
- * 2. ESTADO: Devuelve si el empleado está en turno, el turno abierto (si tiene)
+ * 2. ESTADO: Devuelve si el empleado está en turno, el turno abierto
  * y la lista de fichajes de hoy con su total.
  */
 function handleEstado_(user) {
-  const estado = buildEstadoUsuario_(user);
+  const shifts = getAllShifts_();
+  const estado = buildEstadoUsuarioFromShifts_(user, shifts);
   return jsonResponse_({
     ok: true,
     usuario: {
@@ -309,8 +310,7 @@ function handleEstado_(user) {
 }
 
 /**
- * 3. INGRESO: Registra entrada del empleado.
- * Usa LockService para evitar doble clic o doble pestaña.
+ * 3. INGRESO: Registra entrada del empleado en una sola lectura y escritura.
  */
 function handleIngreso_(user) {
   const lock = LockService.getScriptLock();
@@ -322,7 +322,15 @@ function handleIngreso_(user) {
 
   try {
     const sh = getSheetFichajes_();
-    const openShift = findOpenShiftForUser_(sh, user.usuario);
+    const shifts = getAllShifts_();
+    let openShift = null;
+    for (let i = shifts.length - 1; i >= 0; i--) {
+      if (shifts[i].usuario === user.usuario && shifts[i].estado === 'ABIERTO') {
+        openShift = shifts[i];
+        break;
+      }
+    }
+
     if (openShift) {
       return errorResponse_(
         'Ya tenés un ingreso abierto desde las ' + openShift.ingreso + ' (' + openShift.fecha + '). Tenés que marcar EGRESO antes de volver a ingresar.',
@@ -343,7 +351,7 @@ function handleIngreso_(user) {
       fechaHoy,
       horaIngreso,
       '',
-      0,
+      '0',
       '00:00',
       'ABIERTO',
       String(nowMs),
@@ -351,11 +359,27 @@ function handleIngreso_(user) {
     ];
 
     const rowIdx = sh.getLastRow() + 1;
-    sh.getRange(rowIdx, 1, 1, newRow.length).setNumberFormat('@');
-    sh.getRange(rowIdx, 1, 1, newRow.length).setValues([newRow]);
-    SpreadsheetApp.flush();
+    const rng = sh.getRange(rowIdx, 1, 1, newRow.length);
+    rng.setNumberFormat('@');
+    rng.setValues([newRow]);
 
-    const estado = buildEstadoUsuario_(user);
+    // Actualizar en memoria sin releer toda la hoja
+    shifts.push({
+      rowNumber: rowIdx,
+      id: id,
+      usuario: user.usuario,
+      nombre: user.nombre,
+      fecha: fechaHoy,
+      ingreso: horaIngreso,
+      egreso: '',
+      horasDecimal: 0,
+      duracion: '00:00',
+      estado: 'ABIERTO',
+      ingresoTS: nowMs,
+      egresoTS: null
+    });
+
+    const estado = buildEstadoUsuarioFromShifts_(user, shifts);
     return jsonResponse_({
       ok: true,
       mensaje: 'Ingreso registrado a las ' + horaIngreso + ' hs.',
@@ -367,8 +391,7 @@ function handleIngreso_(user) {
 }
 
 /**
- * 4. EGRESO: Cierra el turno abierto del empleado.
- * Usa LockService para evitar doble clic o doble pestaña.
+ * 4. EGRESO: Cierra el turno abierto del empleado en una sola operación por lotes.
  */
 function handleEgreso_(user) {
   const lock = LockService.getScriptLock();
@@ -380,7 +403,15 @@ function handleEgreso_(user) {
 
   try {
     const sh = getSheetFichajes_();
-    const openShift = findOpenShiftForUser_(sh, user.usuario);
+    const shifts = getAllShifts_();
+    let openShift = null;
+    for (let i = shifts.length - 1; i >= 0; i--) {
+      if (shifts[i].usuario === user.usuario && shifts[i].estado === 'ABIERTO') {
+        openShift = shifts[i];
+        break;
+      }
+    }
+
     if (!openShift) {
       return errorResponse_(
         'No tenés ningún turno abierto para cerrar. Primero tenés que marcar INGRESO.',
@@ -393,16 +424,26 @@ function handleEgreso_(user) {
     const horaEgreso = formatTimeHM_(new Date(egresoMs));
     const calc = calculateDuration_(openShift.ingresoTS, egresoMs);
 
-    // Columnas: 6=Egreso, 7=Horas decimal, 8=Duración hh:mm, 9=Estado, 11=EgresoTS
-    sh.getRange(openShift.rowNumber, 6, 1, 6).setNumberFormat('@');
-    sh.getRange(openShift.rowNumber, 6).setValue(horaEgreso);
-    sh.getRange(openShift.rowNumber, 7).setValue(String(calc.horasDecimal));
-    sh.getRange(openShift.rowNumber, 8).setValue(calc.duracionHHMM);
-    sh.getRange(openShift.rowNumber, 9).setValue('CERRADO');
-    sh.getRange(openShift.rowNumber, 11).setValue(String(egresoMs));
-    SpreadsheetApp.flush();
+    // Escritura en bloque único (columnas 6 a 11: Egreso, Horas decimal, Duración hh:mm, Estado, IngresoTS, EgresoTS)
+    const rng = sh.getRange(openShift.rowNumber, 6, 1, 6);
+    rng.setNumberFormat('@');
+    rng.setValues([[
+      horaEgreso,
+      String(calc.horasDecimal),
+      calc.duracionHHMM,
+      'CERRADO',
+      String(openShift.ingresoTS),
+      String(egresoMs)
+    ]]);
 
-    const estado = buildEstadoUsuario_(user);
+    // Actualizar en memoria sin volver a leer toda la planilla
+    openShift.egreso = horaEgreso;
+    openShift.horasDecimal = calc.horasDecimal;
+    openShift.duracion = calc.duracionHHMM;
+    openShift.estado = 'CERRADO';
+    openShift.egresoTS = egresoMs;
+
+    const estado = buildEstadoUsuarioFromShifts_(user, shifts);
     return jsonResponse_({
       ok: true,
       mensaje: 'Egreso registrado a las ' + horaEgreso + ' hs. Duración del turno: ' + calc.duracionHHMM + ' hs.',
@@ -414,7 +455,7 @@ function handleEgreso_(user) {
 }
 
 /**
- * 5. MIS HORAS: Filtra los fichajes del usuario logueado por rango de fechas (desde, hasta).
+ * 5. MIS HORAS: Filtra los fichajes del usuario logueado por rango de fechas.
  */
 function handleMisHoras_(user, body) {
   const defaults = getCurrentMonthRange_();
@@ -426,7 +467,6 @@ function handleMisHoras_(user, body) {
     return item.usuario === user.usuario && item.fecha >= desde && item.fecha <= hasta;
   });
 
-  // Ordenar del más reciente al más antiguo
   filtered.sort(function(a, b) {
     return (b.ingresoTS || 0) - (a.ingresoTS || 0);
   });
@@ -446,7 +486,7 @@ function handleMisHoras_(user, body) {
 }
 
 /**
- * 6. CAMBIAR PIN (Mi cuenta): Permite al usuario cambiar su propio PIN validando el actual.
+ * 6. CAMBIAR PIN (Mi cuenta)
  */
 function handleCambiarPin_(user, body) {
   const pinActual = String(body.pinActual || '').trim();
@@ -473,7 +513,7 @@ function handleCambiarPin_(user, body) {
     const nuevoHash = hashPin_(pinNuevo, user.usuario);
     const sh = getSheetUsuarios_();
     sh.getRange(freshUser.rowNumber, 4).setNumberFormat('@').setValue(nuevoHash);
-    SpreadsheetApp.flush();
+    invalidateUsersCache_();
 
     return jsonResponse_({
       ok: true,
@@ -490,49 +530,15 @@ function handleCambiarPin_(user, body) {
 function handleEmpleados_() {
   const users = getAllUsers_();
   const shifts = getAllShifts_();
-
-  const openByUser = {};
-  shifts.forEach(function(s) {
-    if (s.estado === 'ABIERTO') {
-      openByUser[s.usuario] = s;
-    }
-  });
-
-  const empleados = users.map(function(u) {
-    const turnoAbierto = openByUser[u.usuario] || null;
-    return {
-      usuario: u.usuario,
-      nombre: u.nombre,
-      rol: u.rol,
-      activo: u.activo,
-      creado: u.creado,
-      enTurno: Boolean(turnoAbierto),
-      turnoAbierto: turnoAbierto
-    };
-  });
-
-  const adentroAhora = empleados
-    .filter(function(e) { return e.enTurno; })
-    .map(function(e) {
-      return {
-        usuario: e.usuario,
-        nombre: e.nombre,
-        fecha: e.turnoAbierto.fecha,
-        ingreso: e.turnoAbierto.ingreso,
-        ingresoTS: e.turnoAbierto.ingresoTS,
-        fichajeId: e.turnoAbierto.id
-      };
-    });
-
+  const payload = buildEmpleadosPayload_(users, shifts);
   return jsonResponse_({
     ok: true,
-    empleados: empleados,
-    adentroAhora: adentroAhora
+    ...payload
   });
 }
 
 /**
- * 8. CREAR EMPLEADO (Solo dueño): Crea un nuevo usuario con nombre, usuario y PIN.
+ * 8. CREAR EMPLEADO (Solo dueño)
  */
 function handleCrearEmpleado_(body) {
   const nombre = String(body.nombre || '').trim();
@@ -554,9 +560,11 @@ function handleCrearEmpleado_(body) {
   const lock = LockService.getScriptLock();
   lock.waitLock(10000);
   try {
-    const existing = findUserByUsername_(usuario);
-    if (existing) {
-      return errorResponse_('Ya existe un empleado con el usuario "' + usuario + '". Elegí otro.', 'USER_EXISTS');
+    const users = getAllUsers_();
+    for (let i = 0; i < users.length; i++) {
+      if (users[i].usuario === usuario) {
+        return errorResponse_('Ya existe un empleado con el usuario "' + usuario + '". Elegí otro.', 'USER_EXISTS');
+      }
     }
 
     const sh = getSheetUsuarios_();
@@ -564,8 +572,9 @@ function handleCrearEmpleado_(body) {
     const creado = formatNowDateTime_();
     const rowIdx = sh.getLastRow() + 1;
 
-    sh.getRange(rowIdx, 1, 1, 6).setNumberFormat('@');
-    sh.getRange(rowIdx, 1, 1, 6).setValues([[
+    const rng = sh.getRange(rowIdx, 1, 1, 6);
+    rng.setNumberFormat('@');
+    rng.setValues([[
       usuario,
       nombre,
       rol,
@@ -573,11 +582,23 @@ function handleCrearEmpleado_(body) {
       'SI',
       creado
     ]]);
-    SpreadsheetApp.flush();
+    invalidateUsersCache_();
 
+    users.push({
+      rowNumber: rowIdx,
+      usuario: usuario,
+      nombre: nombre,
+      rol: rol,
+      pinHash: pinHash,
+      activo: true,
+      creado: creado
+    });
+
+    const payload = buildEmpleadosPayload_(users, getAllShifts_());
     return jsonResponse_({
       ok: true,
-      mensaje: 'Empleado "' + nombre + '" (' + usuario + ') creado con éxito.'
+      mensaje: 'Empleado "' + nombre + '" (' + usuario + ') creado con éxito.',
+      ...payload
     });
   } finally {
     lock.releaseLock();
@@ -599,7 +620,14 @@ function handleToggleEmpleado_(currentUser, body) {
   const lock = LockService.getScriptLock();
   lock.waitLock(10000);
   try {
-    const target = findUserByUsername_(targetUsername);
+    const users = getAllUsers_();
+    let target = null;
+    for (let i = 0; i < users.length; i++) {
+      if (users[i].usuario === targetUsername) {
+        target = users[i];
+        break;
+      }
+    }
     if (!target) {
       return errorResponse_('No se encontró el empleado "' + targetUsername + '".', 'USER_NOT_FOUND');
     }
@@ -607,12 +635,15 @@ function handleToggleEmpleado_(currentUser, body) {
     const nuevoEstado = !target.activo;
     const sh = getSheetUsuarios_();
     sh.getRange(target.rowNumber, 5).setNumberFormat('@').setValue(nuevoEstado ? 'SI' : 'NO');
-    SpreadsheetApp.flush();
+    target.activo = nuevoEstado;
+    invalidateUsersCache_();
 
+    const payload = buildEmpleadosPayload_(users, getAllShifts_());
     return jsonResponse_({
       ok: true,
       activo: nuevoEstado,
-      mensaje: 'El empleado "' + target.nombre + '" ahora está ' + (nuevoEstado ? 'HABILITADO' : 'DESHABILITADO') + '.'
+      mensaje: 'El empleado "' + target.nombre + '" ahora está ' + (nuevoEstado ? 'HABILITADO' : 'DESHABILITADO') + '.',
+      ...payload
     });
   } finally {
     lock.releaseLock();
@@ -620,7 +651,51 @@ function handleToggleEmpleado_(currentUser, body) {
 }
 
 /**
- * 10. RESET PIN (Solo dueño): Cambia el PIN de cualquier empleado.
+ * 10. ELIMINAR EMPLEADO (Solo dueño): Elimina la fila del empleado en la hoja Usuarios.
+ */
+function handleEliminarEmpleado_(currentUser, body) {
+  const targetUsername = normalizeUsername_(body.usuario);
+  if (!targetUsername) {
+    return errorResponse_('Falta indicar el usuario del empleado a eliminar.', 'MISSING_USER');
+  }
+  if (targetUsername === currentUser.usuario) {
+    return errorResponse_('No podés eliminar tu propio usuario.', 'CANNOT_DELETE_SELF');
+  }
+
+  const lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+  try {
+    const users = getAllUsers_();
+    let targetIdx = -1;
+    for (let i = 0; i < users.length; i++) {
+      if (users[i].usuario === targetUsername) {
+        targetIdx = i;
+        break;
+      }
+    }
+    if (targetIdx === -1) {
+      return errorResponse_('No se encontró el empleado "' + targetUsername + '".', 'USER_NOT_FOUND');
+    }
+
+    const target = users[targetIdx];
+    const sh = getSheetUsuarios_();
+    sh.deleteRow(target.rowNumber);
+    users.splice(targetIdx, 1);
+    invalidateUsersCache_();
+
+    const payload = buildEmpleadosPayload_(users, getAllShifts_());
+    return jsonResponse_({
+      ok: true,
+      mensaje: 'El usuario "' + target.nombre + '" (@' + target.usuario + ') fue eliminado.',
+      ...payload
+    });
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+/**
+ * 11. RESET PIN (Solo dueño)
  */
 function handleResetPin_(body) {
   const targetUsername = normalizeUsername_(body.usuario);
@@ -644,12 +719,7 @@ function handleResetPin_(body) {
     const nuevoHash = hashPin_(nuevoPin, target.usuario);
     const sh = getSheetUsuarios_();
     sh.getRange(target.rowNumber, 4).setNumberFormat('@').setValue(nuevoHash);
-
-    // También limpiamos cualquier bloqueo por intentos fallidos que tuviera ese usuario
-    const cache = CacheService.getScriptCache();
-    cache.remove('LOGIN_LOCK_' + target.usuario);
-    cache.remove('LOGIN_FAIL_' + target.usuario);
-    SpreadsheetApp.flush();
+    invalidateUsersCache_();
 
     return jsonResponse_({
       ok: true,
@@ -661,8 +731,7 @@ function handleResetPin_(body) {
 }
 
 /**
- * 11. EGRESO FORZADO (Solo dueño): Cierra el turno abierto de un empleado,
- * aceptando una hora opcional HH:MM (si se omite, usa la hora actual de Córdoba).
+ * 12. EGRESO FORZADO (Solo dueño)
  */
 function handleEgresoForzado_(body) {
   const targetUsername = normalizeUsername_(body.usuario);
@@ -679,7 +748,15 @@ function handleEgresoForzado_(body) {
   lock.waitLock(10000);
   try {
     const sh = getSheetFichajes_();
-    const openShift = findOpenShiftForUser_(sh, targetUsername);
+    const shifts = getAllShifts_();
+    let openShift = null;
+    for (let i = shifts.length - 1; i >= 0; i--) {
+      if (shifts[i].usuario === targetUsername && shifts[i].estado === 'ABIERTO') {
+        openShift = shifts[i];
+        break;
+      }
+    }
+
     if (!openShift) {
       return errorResponse_('El empleado "' + targetUsername + '" no tiene ningún turno abierto en este momento.', 'NO_OPEN_SHIFT');
     }
@@ -689,10 +766,8 @@ function handleEgresoForzado_(body) {
 
     if (horaOpcional) {
       horaEgreso = horaOpcional;
-      // Construir timestamp en zona horaria Córdoba (-03:00) sobre la fecha del ingreso
       const candidateMs = parseCordobaDateTime_(openShift.fecha, horaOpcional);
       if (candidateMs < openShift.ingresoTS) {
-        // Si la hora indicada es menor a la de ingreso (ej. turno nocturno que cruza medianoche), sumar 1 día
         egresoMs = candidateMs + 24 * 60 * 60 * 1000;
       } else {
         egresoMs = candidateMs;
@@ -705,17 +780,28 @@ function handleEgresoForzado_(body) {
 
     const calc = calculateDuration_(openShift.ingresoTS, egresoMs);
 
-    sh.getRange(openShift.rowNumber, 6, 1, 6).setNumberFormat('@');
-    sh.getRange(openShift.rowNumber, 6).setValue(horaEgreso);
-    sh.getRange(openShift.rowNumber, 7).setValue(String(calc.horasDecimal));
-    sh.getRange(openShift.rowNumber, 8).setValue(calc.duracionHHMM);
-    sh.getRange(openShift.rowNumber, 9).setValue('CERRADO');
-    sh.getRange(openShift.rowNumber, 11).setValue(String(egresoMs));
-    SpreadsheetApp.flush();
+    const rng = sh.getRange(openShift.rowNumber, 6, 1, 6);
+    rng.setNumberFormat('@');
+    rng.setValues([[
+      horaEgreso,
+      String(calc.horasDecimal),
+      calc.duracionHHMM,
+      'CERRADO',
+      String(openShift.ingresoTS),
+      String(egresoMs)
+    ]]);
 
+    openShift.egreso = horaEgreso;
+    openShift.horasDecimal = calc.horasDecimal;
+    openShift.duracion = calc.duracionHHMM;
+    openShift.estado = 'CERRADO';
+    openShift.egresoTS = egresoMs;
+
+    const payload = buildEmpleadosPayload_(getAllUsers_(), shifts);
     return jsonResponse_({
       ok: true,
-      mensaje: 'Egreso forzado aplicado a "' + openShift.nombre + '" a las ' + horaEgreso + ' hs (' + calc.duracionHHMM + ' hs).'
+      mensaje: 'Egreso forzado aplicado a "' + openShift.nombre + '" a las ' + horaEgreso + ' hs (' + calc.duracionHHMM + ' hs).',
+      ...payload
     });
   } finally {
     lock.releaseLock();
@@ -723,8 +809,7 @@ function handleEgresoForzado_(body) {
 }
 
 /**
- * 12. REPORTE (Solo dueño): Filtra por fechas y empleado (o todos),
- * devuelve resumen por empleado y tabla de fichajes.
+ * 13. REPORTE (Solo dueño)
  */
 function handleReporte_(body) {
   const defaults = getCurrentMonthRange_();
@@ -741,12 +826,10 @@ function handleReporte_(body) {
     return matchDate && matchUser;
   });
 
-  // Ordenar por fecha/ingreso descendente
   filtered.sort(function(a, b) {
     return (b.ingresoTS || 0) - (a.ingresoTS || 0);
   });
 
-  // Agrupar resumen por empleado
   const mapResumen = {};
   filtered.forEach(function(s) {
     if (!mapResumen[s.usuario]) {
@@ -802,24 +885,59 @@ function handleReporte_(body) {
 }
 
 /* ==========================================================================
- * FUNCIONES AUXILIARES DE DATOS Y HOJAS
+ * FUNCIONES AUXILIARES DE DATOS Y CACHÉ RÁPIDA
  * ========================================================================== */
 
-function ensureSheetsExist_() {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  if (!ss.getSheetByName(SHEET_USUARIOS) || !ss.getSheetByName(SHEET_FICHAJES)) {
-    setup();
-  }
-}
-
 function getSheetUsuarios_() {
-  ensureSheetsExist_();
-  return SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_USUARIOS);
+  if (_shUsuariosCache) return _shUsuariosCache;
+  const ss = getSS_();
+  let sh = ss.getSheetByName(SHEET_USUARIOS);
+  if (!sh) {
+    setup();
+    sh = ss.getSheetByName(SHEET_USUARIOS);
+  }
+  _shUsuariosCache = sh;
+  return sh;
 }
 
 function getSheetFichajes_() {
-  ensureSheetsExist_();
-  return SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_FICHAJES);
+  if (_shFichajesCache) return _shFichajesCache;
+  const ss = getSS_();
+  let sh = ss.getSheetByName(SHEET_FICHAJES);
+  if (!sh) {
+    setup();
+    sh = ss.getSheetByName(SHEET_FICHAJES);
+  }
+  _shFichajesCache = sh;
+  return sh;
+}
+
+function invalidateUsersCache_() {
+  try {
+    CacheService.getScriptCache().remove('USERS_LIST_CACHE_V1');
+  } catch (e) {}
+}
+
+function getAllUsersFast_() {
+  try {
+    const cached = CacheService.getScriptCache().get('USERS_LIST_CACHE_V1');
+    if (cached) return JSON.parse(cached);
+  } catch (e) {}
+  const list = getAllUsers_();
+  try {
+    CacheService.getScriptCache().put('USERS_LIST_CACHE_V1', JSON.stringify(list), 120);
+  } catch (e) {}
+  return list;
+}
+
+function findUserByUsernameFast_(username) {
+  const target = normalizeUsername_(username);
+  if (!target) return null;
+  const users = getAllUsersFast_();
+  for (let i = 0; i < users.length; i++) {
+    if (users[i].usuario === target) return users[i];
+  }
+  return findUserByUsername_(target);
 }
 
 function getAllUsers_() {
@@ -859,9 +977,11 @@ function findUserByUsername_(username) {
 
 function getAllShifts_() {
   const sh = getSheetFichajes_();
-  const values = sh.getDataRange().getValues();
+  const lastRow = sh.getLastRow();
+  if (lastRow <= 1) return [];
+  const values = sh.getRange(2, 1, lastRow - 1, 11).getValues();
   const list = [];
-  for (let i = 1; i < values.length; i++) {
+  for (let i = 0; i < values.length; i++) {
     const row = values[i];
     const id = String(row[0] || '').trim();
     const usuario = normalizeUsername_(row[1]);
@@ -871,14 +991,14 @@ function getAllShifts_() {
     const ingreso = normalizeCellTime_(row[4]);
     const egreso = normalizeCellTime_(row[5]);
     const horasDecRaw = String(row[6] !== undefined && row[6] !== null ? row[6] : '0').replace(',', '.');
-    const horasDecimal = Math.round(( parseFloat(horasDecRaw) || 0 ) * 100) / 100;
+    const horasDecimal = Math.round((parseFloat(horasDecRaw) || 0) * 100) / 100;
     const duracion = normalizeCellDuration_(row[7]);
     const estado = String(row[8] || 'CERRADO').trim().toUpperCase();
     const ingresoTS = Number(row[9]) || parseCordobaDateTime_(fecha, ingreso || '00:00');
     const egresoTS = row[10] ? Number(row[10]) : null;
 
     list.push({
-      rowNumber: i + 1,
+      rowNumber: i + 2,
       id: id,
       usuario: usuario,
       nombre: String(row[2] || '').trim(),
@@ -895,21 +1015,49 @@ function getAllShifts_() {
   return list;
 }
 
-function findOpenShiftForUser_(sh, username) {
-  const target = normalizeUsername_(username);
-  const shifts = getAllShifts_();
-  for (let i = shifts.length - 1; i >= 0; i--) {
-    if (shifts[i].usuario === target && shifts[i].estado === 'ABIERTO') {
-      return shifts[i];
+function buildEmpleadosPayload_(users, shifts) {
+  const openByUser = {};
+  for (let i = 0; i < shifts.length; i++) {
+    const s = shifts[i];
+    if (s.estado === 'ABIERTO') {
+      openByUser[s.usuario] = s;
     }
   }
-  return null;
+
+  const empleados = users.map(function(u) {
+    const turnoAbierto = openByUser[u.usuario] || null;
+    return {
+      usuario: u.usuario,
+      nombre: u.nombre,
+      rol: u.rol,
+      activo: u.activo,
+      creado: u.creado,
+      enTurno: Boolean(turnoAbierto),
+      turnoAbierto: turnoAbierto
+    };
+  });
+
+  const adentroAhora = empleados
+    .filter(function(e) { return e.enTurno; })
+    .map(function(e) {
+      return {
+        usuario: e.usuario,
+        nombre: e.nombre,
+        fecha: e.turnoAbierto.fecha,
+        ingreso: e.turnoAbierto.ingreso,
+        ingresoTS: e.turnoAbierto.ingresoTS,
+        fichajeId: e.turnoAbierto.id
+      };
+    });
+
+  return {
+    empleados: empleados,
+    adentroAhora: adentroAhora
+  };
 }
 
-function buildEstadoUsuario_(user) {
+function buildEstadoUsuarioFromShifts_(user, shifts) {
   const hoy = formatDateYMD_(new Date());
-  const shifts = getAllShifts_();
-
   let turnoAbierto = null;
   const fichajesHoy = [];
 
@@ -919,7 +1067,7 @@ function buildEstadoUsuario_(user) {
       if (s.estado === 'ABIERTO') {
         turnoAbierto = s;
       }
-      if (s.fecha === hoy || (s.estado === 'ABIERTO' && s.usuario === user.usuario)) {
+      if (s.fecha === hoy || s.estado === 'ABIERTO') {
         fichajesHoy.push(s);
       }
     }
@@ -1065,7 +1213,6 @@ function normalizeDateFilter_(val, fallback) {
 function parseCordobaDateTime_(ymd, hm) {
   const safeYMD = /^\d{4}-\d{2}-\d{2}$/.test(ymd) ? ymd : formatDateYMD_(new Date());
   const safeHM = /^([01]\d|2[0-3]):([0-5]\d)$/.test(hm) ? hm : '00:00';
-  // Córdoba (Argentina) usa UTC-3 fijo sin horario de verano
   const iso = safeYMD + 'T' + safeHM + ':00-03:00';
   const parsed = new Date(iso).getTime();
   return isNaN(parsed) ? Date.now() : parsed;
