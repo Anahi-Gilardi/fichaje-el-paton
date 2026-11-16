@@ -8,6 +8,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js" defer></script>
   <style>
     :root {
       --bg-page: #f3eee8;
@@ -1614,13 +1616,31 @@
           </div>
         </div>
 
-        <!-- Nómina completa de empleados -->
+        <!-- Nómina completa de empleados + Descarga de PDF Mensual -->
         <div class="card">
           <div class="card-header">
             <div>
               <div class="card-title">👥 Nómina de Empleados</div>
-              <div class="card-subtitle">Habilitá o deshabilitá accesos, cambiá el PIN o forzá el egreso si alguien se olvidó de marcar salida</div>
+              <div class="card-subtitle">Habilitá o deshabilitá accesos, cambiá el PIN, eliminá usuarios o descargá el PDF mensual de horas trabajadas</div>
             </div>
+          </div>
+
+          <div class="filter-bar" style="justify-content: space-between; align-items: flex-end; margin-bottom: 18px;">
+            <div style="display: flex; gap: 14px; flex-wrap: wrap; align-items: flex-end;">
+              <div class="filter-item">
+                <label for="pdfMesInput">📅 Mes a descargar</label>
+                <input type="month" id="pdfMesInput" class="form-input mono" required />
+              </div>
+              <div class="filter-item" style="min-width: 240px;">
+                <label for="pdfEmpleadoSelect">👤 Empleado</label>
+                <select id="pdfEmpleadoSelect" class="form-select">
+                  <option value="todos">Todos los empleados (Resumen + Detalle)</option>
+                </select>
+              </div>
+            </div>
+            <button type="button" id="btnDescargarPDFMes" class="btn-primary">
+              📄 Descargar PDF de Horas por Mes
+            </button>
           </div>
 
           <div class="table-wrap">
@@ -2745,10 +2765,13 @@
 
       // Inicializar filtros de fechas con el mes actual
       const range = getCurrentMonthRangeCordoba();
+      const partsNow = getCordobaParts(new Date());
       document.getElementById("misHorasDesde").value = range.desde;
       document.getElementById("misHorasHasta").value = range.hasta;
       document.getElementById("repDesde").value = range.desde;
       document.getElementById("repHasta").value = range.hasta;
+      const pdfMesEl = document.getElementById("pdfMesInput");
+      if (pdfMesEl && !pdfMesEl.value) pdfMesEl.value = partsNow.ym;
 
       updateLiveClockAndStopwatch();
     }
@@ -3060,6 +3083,20 @@
       state.empleadosCache = empleados;
       state.adentroAhoraCache = adentro;
 
+      // Actualizar selector de empleados para la exportación a PDF
+      const pdfSelect = document.getElementById("pdfEmpleadoSelect");
+      if (pdfSelect) {
+        const prevVal = pdfSelect.value || "todos";
+        pdfSelect.innerHTML =
+          `<option value="todos">Todos los empleados (Resumen + Detalle)</option>` +
+          empleados.map(e => `<option value="${escapeHtml(e.usuario)}">${escapeHtml(e.nombre)} (@${escapeHtml(e.usuario)})</option>`).join("");
+        if (empleados.some(e => e.usuario === prevVal)) {
+          pdfSelect.value = prevVal;
+        } else {
+          pdfSelect.value = "todos";
+        }
+      }
+
       if (adentro.length === 0) {
         adentroBox.innerHTML = `<div class="empty-state">No hay empleados con turno abierto en este momento.</div>`;
       } else {
@@ -3313,6 +3350,259 @@
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
       showToast("Archivo CSV descargado correctamente.", "success");
+    }
+
+    function formatMonthNameES(ym) {
+      const meses = [
+        "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+        "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
+      ];
+      if (!/^\d{4}-\d{2}$/.test(ym)) return ym;
+      const [y, m] = ym.split("-").map(Number);
+      return `${meses[m - 1] || m} ${y}`;
+    }
+
+    async function descargarPDFMensual() {
+      const btn = document.getElementById("btnDescargarPDFMes");
+      const ymInput = document.getElementById("pdfMesInput");
+      const empSelect = document.getElementById("pdfEmpleadoSelect");
+
+      const ym = (ymInput && ymInput.value) ? ymInput.value : getCordobaParts(new Date()).ym;
+      const usuarioFiltro = (empSelect && empSelect.value) ? empSelect.value : "todos";
+
+      const [yearNum, monthNum] = ym.split("-").map(Number);
+      const lastDay = new Date(yearNum, monthNum, 0).getDate();
+      const desde = `${ym}-01`;
+      const hasta = `${ym}-${pad2(lastDay)}`;
+      const mesNombre = formatMonthNameES(ym);
+
+      if (btn) {
+        btn.disabled = true;
+        btn.textContent = "⏳ Generando PDF...";
+      }
+
+      try {
+        const res = await apiCall("reporte", { desde, hasta, usuario: usuarioFiltro });
+        if (!res.ok) {
+          showToast(res.error || "No se pudo obtener el reporte del mes.", "error");
+          return;
+        }
+
+        const deletedSet = new Set(getLocallyDeletedUsers());
+        const empleadosBase = (Array.isArray(res.empleadosLista) ? res.empleadosLista : (state.empleadosCache || []))
+          .filter(u => !deletedSet.has(String(u.usuario || "").toLowerCase()));
+        const rawResumen = (Array.isArray(res.resumenPorEmpleado) ? res.resumenPorEmpleado : [])
+          .filter(r => !deletedSet.has(String(r.usuario || "").toLowerCase()));
+        const fichajes = (Array.isArray(res.fichajes) ? res.fichajes : [])
+          .filter(f => !deletedSet.has(String(f.usuario || "").toLowerCase()));
+
+        // Combinar todos los empleados con su resumen mensual para que aparezcan todos en la planilla
+        const mapResumen = {};
+        rawResumen.forEach(r => {
+          mapResumen[r.usuario] = r;
+        });
+
+        let filasResumen = [];
+        if (usuarioFiltro === "todos") {
+          empleadosBase.forEach(emp => {
+            if (mapResumen[emp.usuario]) {
+              filasResumen.push(mapResumen[emp.usuario]);
+            } else {
+              filasResumen.push({
+                usuario: emp.usuario,
+                nombre: emp.nombre,
+                turnosCerrados: 0,
+                turnosAbiertos: 0,
+                duracionHHMM: "00:00",
+                horasDecimal: 0
+              });
+            }
+          });
+          // Agregar cualquier otro usuario que tenga fichajes aunque no estuviera en empleadosBase
+          rawResumen.forEach(r => {
+            if (!filasResumen.some(item => item.usuario === r.usuario)) {
+              filasResumen.push(r);
+            }
+          });
+        } else {
+          if (rawResumen.length > 0) {
+            filasResumen = rawResumen;
+          } else {
+            const empObj = empleadosBase.find(e => e.usuario === usuarioFiltro);
+            filasResumen = [{
+              usuario: usuarioFiltro,
+              nombre: empObj ? empObj.nombre : usuarioFiltro,
+              turnosCerrados: 0,
+              turnosAbiertos: 0,
+              duracionHHMM: "00:00",
+              horasDecimal: 0
+            }];
+          }
+        }
+
+        filasResumen.sort((a, b) => (b.horasDecimal || 0) - (a.horasDecimal || 0));
+
+        const totalHHMM = res.totalGeneralHHMM || "00:00";
+        const totalDec = formatDecimalAR(res.totalGeneralDecimal || 0);
+        const totalTurnosCerrados = filasResumen.reduce((acc, r) => acc + (r.turnosCerrados || 0), 0);
+        const totalTurnosAbiertos = filasResumen.reduce((acc, r) => acc + (r.turnosAbiertos || 0), 0);
+        const nowParts = getCordobaParts(new Date());
+        const fechaEmision = `${formatDisplayDateAR(nowParts.ymd)} ${nowParts.hm} hs`;
+
+        // Generar archivo PDF directo con jsPDF + autoTable
+        if (window.jspdf && window.jspdf.jsPDF) {
+          const { jsPDF } = window.jspdf;
+          const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+
+          // Encabezado con estética de El Patrón
+          doc.setFillColor(26, 16, 10); // #1a100a
+          doc.rect(0, 0, 210, 34, "F");
+          doc.setFillColor(217, 160, 95); // #d9a05f
+          doc.rect(0, 34, 210, 2.2, "F");
+
+          doc.setTextColor(217, 160, 95);
+          doc.setFont("helvetica", "bold");
+          doc.setFontSize(18);
+          doc.text("EL PATRÓN · CONTROL DE HORARIOS", 14, 15);
+
+          doc.setTextColor(255, 255, 255);
+          doc.setFont("helvetica", "normal");
+          doc.setFontSize(11);
+          doc.text(`Reporte Mensual de Horas Trabajadas — Período: ${mesNombre}`, 14, 23);
+
+          doc.setFontSize(9);
+          doc.setTextColor(235, 208, 175);
+          doc.text(
+            `Rango: ${formatDisplayDateAR(desde)} al ${formatDisplayDateAR(hasta)}   |   Emitido: ${fechaEmision} (Córdoba, AR)`,
+            14,
+            29.5
+          );
+
+          // Resumen global del mes
+          doc.setTextColor(31, 20, 13);
+          doc.setFont("helvetica", "bold");
+          doc.setFontSize(12);
+          doc.text("1. Horas trabajadas por empleado en el mes", 14, 46);
+
+          const bodyResumen = filasResumen.map(r => [
+            r.nombre || r.usuario,
+            `@${r.usuario}`,
+            String(r.turnosCerrados || 0),
+            String(r.turnosAbiertos || 0),
+            `${r.duracionHHMM || "00:00"} hs`,
+            `${formatDecimalAR(r.horasDecimal)} h`
+          ]);
+
+          doc.autoTable({
+            startY: 50,
+            head: [["Empleado", "Usuario", "Turnos Cerrados", "Turnos Abiertos", "Horas (HH:MM)", "Horas (Decimal)"]],
+            body: bodyResumen,
+            foot: [[
+              "TOTAL GENERAL DEL MES",
+              "",
+              String(totalTurnosCerrados),
+              String(totalTurnosAbiertos),
+              `${totalHHMM} hs`,
+              `${totalDec} h`
+            ]],
+            theme: "grid",
+            headStyles: {
+              fillColor: [26, 16, 10],
+              textColor: [217, 160, 95],
+              fontStyle: "bold",
+              fontSize: 9.5
+            },
+            footStyles: {
+              fillColor: [148, 101, 63],
+              textColor: [255, 255, 255],
+              fontStyle: "bold",
+              fontSize: 9.5
+            },
+            styles: {
+              fontSize: 9.5,
+              cellPadding: 3.2,
+              textColor: [31, 20, 13]
+            },
+            alternateRowStyles: {
+              fillColor: [250, 246, 242]
+            },
+            columnStyles: {
+              2: { halign: "center" },
+              3: { halign: "center" },
+              4: { halign: "right", fontStyle: "bold" },
+              5: { halign: "right", fontStyle: "bold" }
+            }
+          });
+
+          // Tabla 2: Detalle de fichajes del mes
+          let nextY = (doc.lastAutoTable && doc.lastAutoTable.finalY) ? doc.lastAutoTable.finalY + 12 : 110;
+          if (nextY > 250) {
+            doc.addPage();
+            nextY = 20;
+          }
+
+          doc.setTextColor(31, 20, 13);
+          doc.setFont("helvetica", "bold");
+          doc.setFontSize(12);
+          doc.text(`2. Detalle de fichajes registrados (${fichajes.length})`, 14, nextY);
+
+          if (fichajes.length === 0) {
+            doc.setFont("helvetica", "normal");
+            doc.setFontSize(10);
+            doc.setTextColor(110, 90, 75);
+            doc.text("No hay fichajes individuales registrados en este mes.", 14, nextY + 8);
+          } else {
+            const bodyDetalle = fichajes.map(f => [
+              formatDisplayDateAR(f.fecha),
+              f.nombre || f.usuario,
+              f.ingreso || "—",
+              f.egreso || "—",
+              f.estado === "ABIERTO" ? "En curso" : `${f.duracion || "00:00"} hs`,
+              f.estado === "ABIERTO" ? "0,00 h" : `${formatDecimalAR(f.horasDecimal)} h`,
+              f.estado
+            ]);
+
+            doc.autoTable({
+              startY: nextY + 4,
+              head: [["Fecha", "Empleado", "Ingreso", "Egreso", "Duración", "Horas Decimal", "Estado"]],
+              body: bodyDetalle,
+              theme: "striped",
+              headStyles: {
+                fillColor: [124, 81, 48],
+                textColor: [255, 255, 255],
+                fontStyle: "bold",
+                fontSize: 9
+              },
+              styles: {
+                fontSize: 8.8,
+                cellPadding: 2.8,
+                textColor: [31, 20, 13]
+              },
+              columnStyles: {
+                0: { halign: "center" },
+                2: { halign: "center" },
+                3: { halign: "center" },
+                4: { halign: "right" },
+                5: { halign: "right" },
+                6: { halign: "center" }
+              }
+            });
+          }
+
+          const suffix = usuarioFiltro !== "todos" ? `_${usuarioFiltro}` : "";
+          doc.save(`Horas_El_Patron_${ym}${suffix}.pdf`);
+          showToast(`PDF de ${mesNombre} descargado correctamente.`, "success");
+          return;
+        }
+
+        // Fallback de impresión a PDF si no hubiera internet para cargar jsPDF
+        window.print();
+      } finally {
+        if (btn) {
+          btn.disabled = false;
+          btn.textContent = "📄 Descargar PDF de Horas por Mes";
+        }
+      }
     }
 
     /* ========================================================================
@@ -3608,12 +3898,13 @@
         }
       });
 
-      // 9. Reporte y CSV
+      // 9. Reporte, CSV y PDF Mensual
       document.getElementById("reporteFilterForm").addEventListener("submit", (e) => {
         e.preventDefault();
         loadReporte();
       });
       document.getElementById("btnDescargarCSV").addEventListener("click", descargarReporteCSV);
+      document.getElementById("btnDescargarPDFMes").addEventListener("click", descargarPDFMensual);
 
       // 10. Mi cuenta (Cambiar propio PIN)
       document.getElementById("cambiarPinForm").addEventListener("submit", async (e) => {
