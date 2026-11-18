@@ -3715,6 +3715,71 @@
       };
     }
 
+    function formatMinutosEnPalabras(totalMin) {
+      const m = Math.max(0, Math.round(Number(totalMin) || 0));
+      const h = Math.floor(m / 60);
+      const mins = m % 60;
+      return `${h} h ${pad2(mins)} min`;
+    }
+
+    function formatMinutosEnPalabrasLargo(totalMin) {
+      const m = Math.max(0, Math.round(Number(totalMin) || 0));
+      const h = Math.floor(m / 60);
+      const mins = m % 60;
+      const hLabel = h === 1 ? "1 hora" : `${h} horas`;
+      const mLabel = mins === 1 ? "1 minuto" : `${pad2(mins)} minutos`;
+      return `${hLabel} ${mLabel}`;
+    }
+
+    function formatFechaConDiaSemanaAR(ymd) {
+      const s = String(ymd || "").trim();
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+      const [y, m, d] = s.split("-").map(Number);
+      const dias = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
+      const dt = new Date(Date.UTC(y, m - 1, d, 12, 0, 0));
+      const diaNombre = dias[dt.getUTCDay()] || "";
+      return `${diaNombre} ${pad2(d)}/${pad2(m)}/${y}`;
+    }
+
+    function loadLogoDataUrlForPdf() {
+      return new Promise((resolve) => {
+        const img = new Image();
+        img.crossOrigin = "Anonymous";
+        img.onload = () => {
+          try {
+            const canvas = document.createElement("canvas");
+            const size = 240;
+            canvas.width = size;
+            canvas.height = size;
+            const ctx = canvas.getContext("2d");
+
+            // Fondo circular crema con borde blanco
+            ctx.beginPath();
+            ctx.arc(size / 2, size / 2, size / 2 - 4, 0, Math.PI * 2);
+            ctx.fillStyle = "#f4ebe2";
+            ctx.fill();
+            ctx.lineWidth = 8;
+            ctx.strokeStyle = "#ffffff";
+            ctx.stroke();
+
+            ctx.save();
+            ctx.beginPath();
+            ctx.arc(size / 2, size / 2, size / 2 - 14, 0, Math.PI * 2);
+            ctx.clip();
+            const pad = 20;
+            ctx.drawImage(img, pad, pad, size - pad * 2, size - pad * 2);
+            ctx.restore();
+
+            resolve(canvas.toDataURL("image/png"));
+          } catch (err) {
+            resolve(null);
+          }
+        };
+        img.onerror = () => resolve(null);
+        img.src = "logo.png";
+      });
+    }
+
     async function cargarResumenMensualEnPantalla() {
       const resBody = document.getElementById("mesResumenEmpleadoBody");
       const detBody = document.getElementById("mesDetalleDiarioBody");
@@ -3727,9 +3792,13 @@
         return;
       }
 
-      document.getElementById("mesTotalTrabajadoHHMM").textContent = data.totalesGenerales.totalTrabajadoHHMM;
-      document.getElementById("mesTotalNormalesHHMM").textContent = data.totalesGenerales.horasNormalesHHMM;
-      document.getElementById("mesTotalExtrasHHMM").textContent = data.totalesGenerales.horasExtrasHHMM;
+      const tg = data.totalesGenerales;
+      document.getElementById("mesTotalTrabajadoHHMM").innerHTML =
+        `${escapeHtml(tg.totalTrabajadoHHMM)} <span style="font-size:13px; font-weight:600; color:var(--text-muted);">(${escapeHtml(formatMinutosEnPalabras(tg.minutosTrabajados))})</span>`;
+      document.getElementById("mesTotalNormalesHHMM").innerHTML =
+        `${escapeHtml(tg.horasNormalesHHMM)} <span style="font-size:13px; font-weight:600; color:var(--text-muted);">(${escapeHtml(formatMinutosEnPalabras(tg.minutosNormales))})</span>`;
+      document.getElementById("mesTotalExtrasHHMM").innerHTML =
+        `${escapeHtml(tg.horasExtrasHHMM)} <span style="font-size:13px; font-weight:600; color:var(--text-muted);">(${escapeHtml(formatMinutosEnPalabras(tg.minutosExtras))})</span>`;
 
       const filasResumen = data.resumenPorEmpleado;
       if (filasResumen.length === 0) {
@@ -3747,10 +3816,17 @@
                 : `0`
               }
             </td>
-            <td class="mono"><strong>${escapeHtml(r.totalTrabajadoHHMM)}</strong></td>
-            <td class="mono" style="color: var(--green-main); font-weight: 700;">${escapeHtml(r.horasNormalesHHMM)}</td>
+            <td class="mono">
+              <strong>${escapeHtml(r.totalTrabajadoHHMM)}</strong>
+              <div style="font-size:11.5px; color:var(--text-muted);">${escapeHtml(formatMinutosEnPalabras(r.minutosTrabajados))}</div>
+            </td>
+            <td class="mono" style="color: var(--green-main); font-weight: 700;">
+              ${escapeHtml(r.horasNormalesHHMM)}
+              <div style="font-size:11.5px; opacity:0.85;">${escapeHtml(formatMinutosEnPalabras(r.minutosNormales))}</div>
+            </td>
             <td class="mono" style="color: ${r.minutosExtras > 0 ? '#b45309' : 'var(--text-muted)'}; font-weight: 800;">
               ${escapeHtml(r.horasExtrasHHMM)}
+              <div style="font-size:11.5px; opacity:0.85;">${escapeHtml(formatMinutosEnPalabras(r.minutosExtras))}</div>
             </td>
           </tr>
         `).join("");
@@ -3758,11 +3834,20 @@
         const footHtml = `
           <tr style="background: #f5ede3; font-weight: 800;">
             <td colspan="3"><strong>TOTAL GENERAL DEL MES</strong></td>
-            <td class="mono"><strong>${escapeHtml(data.totalesGenerales.turnosCerrados)}</strong></td>
-            <td class="mono"><strong>${escapeHtml(data.totalesGenerales.turnosPendientes)}</strong></td>
-            <td class="mono"><strong>${escapeHtml(data.totalesGenerales.totalTrabajadoHHMM)}</strong></td>
-            <td class="mono" style="color: var(--green-main);"><strong>${escapeHtml(data.totalesGenerales.horasNormalesHHMM)}</strong></td>
-            <td class="mono" style="color: #b45309;"><strong>${escapeHtml(data.totalesGenerales.horasExtrasHHMM)}</strong></td>
+            <td class="mono"><strong>${escapeHtml(tg.turnosCerrados)}</strong></td>
+            <td class="mono"><strong>${escapeHtml(tg.turnosPendientes)}</strong></td>
+            <td class="mono">
+              <strong>${escapeHtml(tg.totalTrabajadoHHMM)}</strong>
+              <div style="font-size:11.5px; color:var(--text-muted);">${escapeHtml(formatMinutosEnPalabras(tg.minutosTrabajados))}</div>
+            </td>
+            <td class="mono" style="color: var(--green-main);">
+              <strong>${escapeHtml(tg.horasNormalesHHMM)}</strong>
+              <div style="font-size:11.5px;">${escapeHtml(formatMinutosEnPalabras(tg.minutosNormales))}</div>
+            </td>
+            <td class="mono" style="color: #b45309;">
+              <strong>${escapeHtml(tg.horasExtrasHHMM)}</strong>
+              <div style="font-size:11.5px;">${escapeHtml(formatMinutosEnPalabras(tg.minutosExtras))}</div>
+            </td>
           </tr>
         `;
         resBody.innerHTML = rowsHtml + footHtml;
@@ -3776,14 +3861,21 @@
           const isPendiente = f.estado !== "CERRADO";
           return `
             <tr>
-              <td class="mono">${escapeHtml(formatDisplayDateAR(f.fecha))}</td>
+              <td class="mono">${escapeHtml(formatFechaConDiaSemanaAR(f.fecha))}</td>
               <td><strong>${escapeHtml(f.nombre)}</strong> <span class="mono" style="color:var(--text-muted);">(@${escapeHtml(f.usuario)})</span></td>
               <td class="mono">${escapeHtml(f.ingreso || "—")}</td>
               <td class="mono">${escapeHtml(isPendiente ? "Pendiente" : (f.egreso || "—"))}</td>
-              <td class="mono"><strong>${isPendiente ? "Pendiente" : escapeHtml(f.totalHHMM)}</strong></td>
-              <td class="mono" style="color: var(--green-main); font-weight: 700;">${isPendiente ? "Pendiente" : escapeHtml(f.normalesHHMM)}</td>
+              <td class="mono">
+                <strong>${isPendiente ? "Pendiente" : escapeHtml(f.totalHHMM)}</strong>
+                ${!isPendiente ? `<div style="font-size:11px; color:var(--text-muted);">${escapeHtml(formatMinutosEnPalabras(f.minutosTrabajados))}</div>` : ""}
+              </td>
+              <td class="mono" style="color: var(--green-main); font-weight: 700;">
+                ${isPendiente ? "Pendiente" : escapeHtml(f.normalesHHMM)}
+                ${!isPendiente ? `<div style="font-size:11px; opacity:0.85;">${escapeHtml(formatMinutosEnPalabras(f.minutosNormales))}</div>` : ""}
+              </td>
               <td class="mono" style="color: ${!isPendiente && f.minutosExtras > 0 ? '#b45309' : 'var(--text-muted)'}; font-weight: 700;">
                 ${isPendiente ? "Pendiente" : escapeHtml(f.extrasHHMM)}
+                ${!isPendiente ? `<div style="font-size:11px; opacity:0.85;">${escapeHtml(formatMinutosEnPalabras(f.minutosExtras))}</div>` : ""}
               </td>
               <td>
                 <span class="pill ${isPendiente ? "pill-open" : "pill-closed"}">
@@ -3797,7 +3889,7 @@
     }
 
     /* ========================================================================
-       VISTA 4: REPORTE Y DESCARGA CSV / PDF MENSUAL
+       VISTA 4: REPORTE Y DESCARGA CSV / PDF MENSUAL EJECUTIVO
        ======================================================================== */
     async function loadReporte() {
       const desde = document.getElementById("repDesde").value;
@@ -3912,171 +4004,494 @@
       }
 
       try {
-        const data = await obtenerDatosCalculadosDelMes();
+        const [data, logoDataUrl] = await Promise.all([
+          obtenerDatosCalculadosDelMes(),
+          loadLogoDataUrlForPdf()
+        ]);
+
         if (!data.ok) {
           showToast(data.error || "No se pudo obtener el reporte del mes.", "error");
           return;
         }
 
-        // También actualizamos las tablas en pantalla para que coincidan con el PDF
         cargarResumenMensualEnPantalla();
 
         const { ym, desde, hasta, mesNombre, usuarioFiltro, resumenPorEmpleado, fichajesEnriquecidos, totalesGenerales } = data;
         const nowParts = getCordobaParts(new Date());
-        const fechaEmision = `${formatDisplayDateAR(nowParts.ymd)} ${nowParts.hm} hs`;
+        const fechaEmision = `${formatDisplayDateAR(nowParts.ymd)} a las ${nowParts.hm} hs`;
 
         if (window.jspdf && window.jspdf.jsPDF) {
           const { jsPDF } = window.jspdf;
           const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
 
-          // Encabezado El Patrón
-          doc.setFillColor(26, 16, 10); // #1a100a
-          doc.rect(0, 0, 210, 35, "F");
-          doc.setFillColor(217, 160, 95); // #d9a05f
-          doc.rect(0, 35, 210, 2.2, "F");
+          // ==================================================================
+          // 1. BANNER SUPERIOR PREMIUM DE "EL PATRÓN"
+          // ==================================================================
+          doc.setFillColor(26, 16, 10); // #1a100a (Espresso oscuro)
+          doc.rect(0, 0, 210, 38, "F");
+          doc.setFillColor(148, 101, 63); // #94653f (Cobre medio)
+          doc.rect(0, 38, 210, 1.5, "F");
+          doc.setFillColor(217, 160, 95); // #d9a05f (Filete dorado/cobre)
+          doc.rect(0, 39.5, 210, 1.2, "F");
+
+          let textLeftX = 14;
+          if (logoDataUrl) {
+            try {
+              doc.addImage(logoDataUrl, "PNG", 12, 5.5, 27, 27);
+              textLeftX = 43;
+            } catch (e) {
+              textLeftX = 14;
+            }
+          }
 
           doc.setTextColor(217, 160, 95);
           doc.setFont("helvetica", "bold");
-          doc.setFontSize(17.5);
-          doc.text("EL PATRÓN · LIQUIDACIÓN MENSUAL DE HORAS", 14, 14.5);
+          doc.setFontSize(17);
+          doc.text("EL PATRÓN · RESTAURANTE", textLeftX, 14);
 
           doc.setTextColor(255, 255, 255);
-          doc.setFont("helvetica", "normal");
+          doc.setFont("helvetica", "bold");
           doc.setFontSize(11);
-          doc.text(`Período: ${mesNombre} (${formatDisplayDateAR(desde)} al ${formatDisplayDateAR(hasta)})`, 14, 22.5);
+          doc.text("PLANILLA MENSUAL DE HORAS TRABAJADAS Y LIQUIDACIÓN", textLeftX, 21);
 
-          doc.setFontSize(8.8);
+          doc.setFont("helvetica", "normal");
+          doc.setFontSize(8.3);
           doc.setTextColor(235, 208, 175);
           doc.text(
-            `Total Trabajado: ${totalesGenerales.totalTrabajadoHHMM}  |  Normales: ${totalesGenerales.horasNormalesHHMM}  |  Extras a Liquidar: ${totalesGenerales.horasExtrasHHMM}  |  Emitido: ${fechaEmision}`,
-            14,
-            30
+            "Cálculo exacto en horas y minutos (HH:MM) · Las horas extra diarias no se compensan con días más cortos",
+            textLeftX,
+            27.5
+          );
+          doc.text(
+            `Emitido el ${fechaEmision} (Zona horaria: Córdoba, Argentina)`,
+            textLeftX,
+            33
           );
 
-          // Tabla 1: Resumen Mensual por Empleado (Todos en formato HH:MM)
-          doc.setTextColor(31, 20, 13);
+          // Recuadro derecho de Período
+          doc.setFillColor(44, 28, 17);
+          doc.setDrawColor(217, 160, 95);
+          doc.setLineWidth(0.35);
+          doc.roundedRect(148, 6.5, 50, 25, 3, 3, "FD");
+
+          doc.setTextColor(217, 160, 95);
           doc.setFont("helvetica", "bold");
+          doc.setFontSize(7.5);
+          doc.text("PERÍODO LIQUIDADO", 173, 12, { align: "center" });
+
+          doc.setTextColor(255, 255, 255);
           doc.setFontSize(11.5);
-          doc.text("1. Resumen mensual por empleado (Total trabajado, Normales y Extras en HH:MM)", 14, 46);
+          doc.text(mesNombre.toUpperCase(), 173, 19, { align: "center" });
+
+          doc.setTextColor(235, 208, 175);
+          doc.setFont("helvetica", "normal");
+          doc.setFontSize(7.5);
+          doc.text(`${formatDisplayDateAR(desde)} al ${formatDisplayDateAR(hasta)}`, 173, 25.5, { align: "center" });
+
+          // ==================================================================
+          // 2. TARJETAS EJECUTIVAS DE TOTALES DEL MES (CON HORAS Y MINUTOS)
+          // ==================================================================
+          const cardY = 45.5;
+          const cardH = 22;
+          const cardW = 43.5;
+          const gap = 3.3;
+
+          const kpis = [
+            {
+              title: "TOTAL TRABAJADO",
+              hhmm: `${totalesGenerales.totalTrabajadoHHMM} hs`,
+              words: formatMinutosEnPalabrasLargo(totalesGenerales.minutosTrabajados),
+              border: [148, 101, 63],
+              bg: [250, 246, 242],
+              valColor: [26, 16, 10]
+            },
+            {
+              title: "HORAS NORMALES",
+              hhmm: `${totalesGenerales.horasNormalesHHMM} hs`,
+              words: formatMinutosEnPalabrasLargo(totalesGenerales.minutosNormales),
+              border: [21, 128, 61],
+              bg: [240, 253, 244],
+              valColor: [21, 128, 61]
+            },
+            {
+              title: "HORAS EXTRA A LIQUIDAR",
+              hhmm: `${totalesGenerales.horasExtrasHHMM} hs`,
+              words: formatMinutosEnPalabrasLargo(totalesGenerales.minutosExtras),
+              border: [180, 83, 9],
+              bg: [255, 251, 235],
+              valColor: [180, 83, 9]
+            },
+            {
+              title: "TURNOS DEL PERÍODO",
+              hhmm: `${totalesGenerales.turnosCerrados} cerrados`,
+              words: totalesGenerales.turnosPendientes > 0
+                ? `${totalesGenerales.turnosPendientes} pendiente(s) sin salida`
+                : "Sin turnos pendientes",
+              border: [110, 90, 75],
+              bg: [248, 244, 240],
+              valColor: [45, 30, 18]
+            }
+          ];
+
+          kpis.forEach((k, idx) => {
+            const x = 12 + idx * (cardW + gap);
+            doc.setFillColor(...k.bg);
+            doc.setDrawColor(...k.border);
+            doc.setLineWidth(0.4);
+            doc.roundedRect(x, cardY, cardW, cardH, 2.5, 2.5, "FD");
+
+            // Franja superior de color en la tarjeta
+            doc.setFillColor(...k.border);
+            doc.rect(x, cardY, cardW, 1.8, "F");
+
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(7);
+            doc.setTextColor(100, 80, 65);
+            doc.text(k.title, x + 3, cardY + 6.5);
+
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(13);
+            doc.setTextColor(...k.valColor);
+            doc.text(k.hhmm, x + 3, cardY + 13.8);
+
+            doc.setFont("helvetica", "normal");
+            doc.setFontSize(7.3);
+            doc.setTextColor(80, 62, 48);
+            doc.text(k.words, x + 3, cardY + 19.2);
+          });
+
+          // ==================================================================
+          // 3. TABLA 1: RESUMEN GENERAL DE HORAS POR EMPLEADO
+          // ==================================================================
+          doc.setTextColor(26, 16, 10);
+          doc.setFont("helvetica", "bold");
+          doc.setFontSize(11);
+          doc.text("1. Resumen Mensual por Empleado (Expresado en HH:MM y en Horas / Minutos)", 12, 75);
 
           const bodyResumen = resumenPorEmpleado.map(r => [
-            r.nombre || r.usuario,
-            `@${r.usuario}`,
-            `${r.jornadaHHMM} (${r.jornadaHoras}h)`,
-            String(r.turnosCerrados || 0),
-            r.turnosAbiertos > 0 ? `${r.turnosAbiertos} pend.` : "0",
-            r.totalTrabajadoHHMM,
-            r.horasNormalesHHMM,
-            r.horasExtrasHHMM
+            `${r.nombre || r.usuario}\n(@${r.usuario})`,
+            `${r.jornadaHHMM} hs\n(${r.jornadaHoras} h diarias)`,
+            `${r.diasTrabajados || 0} día(s)\n${r.turnosCerrados || 0} turno(s)`,
+            r.turnosAbiertos > 0 ? `${r.turnosAbiertos} PENDIENTE` : "Al día (0)",
+            `${r.totalTrabajadoHHMM} hs\n(${formatMinutosEnPalabras(r.minutosTrabajados)})`,
+            `${r.horasNormalesHHMM} hs\n(${formatMinutosEnPalabras(r.minutosNormales)})`,
+            `${r.horasExtrasHHMM} hs\n(${formatMinutosEnPalabras(r.minutosExtras)})`
           ]);
 
           doc.autoTable({
-            startY: 50,
-            head: [["Empleado", "Usuario", "Jornada", "Cerrados", "Pendientes", "Total Trabajado", "Horas Normales", "Horas Extra"]],
+            startY: 78,
+            margin: { left: 12, right: 12 },
+            head: [[
+              "Empleado",
+              "Jornada Tope",
+              "Días / Turnos",
+              "Pendientes",
+              "Total Trabajado\n(HH:MM y h/min)",
+              "Horas Normales\n(HH:MM y h/min)",
+              "Horas Extra\n(A Liquidar)"
+            ]],
             body: bodyResumen,
             foot: [[
               "TOTAL GENERAL DEL MES",
               "",
-              "",
-              String(totalesGenerales.turnosCerrados),
-              String(totalesGenerales.turnosPendientes),
-              totalesGenerales.totalTrabajadoHHMM,
-              totalesGenerales.horasNormalesHHMM,
-              totalesGenerales.horasExtrasHHMM
+              `${totalesGenerales.turnosCerrados} turnos`,
+              totalesGenerales.turnosPendientes > 0 ? `${totalesGenerales.turnosPendientes} pend.` : "0",
+              `${totalesGenerales.totalTrabajadoHHMM} hs\n(${formatMinutosEnPalabras(totalesGenerales.minutosTrabajados)})`,
+              `${totalesGenerales.horasNormalesHHMM} hs\n(${formatMinutosEnPalabras(totalesGenerales.minutosNormales)})`,
+              `${totalesGenerales.horasExtrasHHMM} hs\n(${formatMinutosEnPalabras(totalesGenerales.minutosExtras)})`
             ]],
             theme: "grid",
             headStyles: {
               fillColor: [26, 16, 10],
               textColor: [217, 160, 95],
               fontStyle: "bold",
-              fontSize: 8.8
+              fontSize: 8.3,
+              halign: "center",
+              valign: "middle",
+              cellPadding: 3
             },
             footStyles: {
-              fillColor: [148, 101, 63],
+              fillColor: [124, 81, 48],
               textColor: [255, 255, 255],
               fontStyle: "bold",
-              fontSize: 9
+              fontSize: 8.5,
+              valign: "middle",
+              cellPadding: 3
             },
             styles: {
-              fontSize: 8.8,
+              fontSize: 8.3,
               cellPadding: 2.8,
-              textColor: [31, 20, 13]
+              textColor: [31, 20, 13],
+              valign: "middle",
+              lineColor: [225, 214, 203],
+              lineWidth: 0.25
             },
             alternateRowStyles: {
-              fillColor: [250, 246, 242]
+              fillColor: [252, 249, 245]
             },
             columnStyles: {
-              2: { halign: "center" },
-              3: { halign: "center" },
-              4: { halign: "center" },
-              5: { halign: "right", fontStyle: "bold" },
-              6: { halign: "right", fontStyle: "bold" },
-              7: { halign: "right", fontStyle: "bold" }
+              0: { halign: "left", fontStyle: "bold", cellWidth: 38 },
+              1: { halign: "center", cellWidth: 23 },
+              2: { halign: "center", cellWidth: 22 },
+              3: { halign: "center", cellWidth: 21 },
+              4: { halign: "right", fontStyle: "bold", cellWidth: 27 },
+              5: { halign: "right", fontStyle: "bold", textColor: [21, 128, 61], cellWidth: 27 },
+              6: { halign: "right", fontStyle: "bold", cellWidth: 28 }
+            },
+            didParseCell: function(hookData) {
+              if (hookData.section === "body") {
+                const rowIdx = hookData.row.index;
+                const empRow = resumenPorEmpleado[rowIdx];
+                if (empRow && hookData.column.index === 6) {
+                  if (empRow.minutosExtras > 0) {
+                    hookData.cell.styles.fillColor = [254, 243, 199]; // Fondo ámbar suave
+                    hookData.cell.styles.textColor = [146, 64, 14];  // Texto ámbar oscuro
+                  } else {
+                    hookData.cell.styles.textColor = [120, 105, 95];
+                  }
+                }
+                if (empRow && hookData.column.index === 3 && empRow.turnosAbiertos > 0) {
+                  hookData.cell.styles.fillColor = [254, 243, 199];
+                  hookData.cell.styles.textColor = [146, 64, 14];
+                  hookData.cell.styles.fontStyle = "bold";
+                }
+              }
+              if (hookData.section === "foot" && hookData.column.index >= 4) {
+                hookData.cell.styles.halign = "right";
+              }
             }
           });
 
-          // Tabla 2: Detalle por Empleado y Día (Fecha, Ingreso, Egreso, Total trabajado, Normales, Extras, Estado)
-          let nextY = (doc.lastAutoTable && doc.lastAutoTable.finalY) ? doc.lastAutoTable.finalY + 11 : 110;
-          if (nextY > 250) {
+          // ==================================================================
+          // 4. SECCIÓN 2: DESGLOSE DETALLADO POR EMPLEADO Y POR DÍA
+          // ==================================================================
+          let currentY = (doc.lastAutoTable && doc.lastAutoTable.finalY) ? doc.lastAutoTable.finalY + 10 : 140;
+
+          if (currentY > 245) {
             doc.addPage();
-            nextY = 20;
+            currentY = 18;
           }
 
-          doc.setTextColor(31, 20, 13);
+          doc.setTextColor(26, 16, 10);
           doc.setFont("helvetica", "bold");
-          doc.setFontSize(11.5);
-          doc.text(`2. Detalle por empleado y por día (${fichajesEnriquecidos.length} registros)`, 14, nextY);
+          doc.setFontSize(11);
+          doc.text("2. Detalle Diario de Fichajes por Empleado (Ingreso, Egreso, Normales y Extras)", 12, currentY);
+          currentY += 4;
 
           if (fichajesEnriquecidos.length === 0) {
             doc.setFont("helvetica", "normal");
             doc.setFontSize(9.5);
             doc.setTextColor(110, 90, 75);
-            doc.text("No hay fichajes registrados en este mes.", 14, nextY + 7);
+            doc.text("No se registraron fichajes en el mes seleccionado.", 12, currentY + 6);
+            currentY += 14;
           } else {
-            const bodyDetalle = fichajesEnriquecidos.map(f => {
-              const isPend = f.estado !== "CERRADO";
-              return [
-                formatDisplayDateAR(f.fecha),
-                f.nombre || f.usuario,
-                f.ingreso || "—",
-                isPend ? "Pendiente" : (f.egreso || "—"),
-                isPend ? "Pendiente" : f.totalHHMM,
-                isPend ? "Pendiente" : f.normalesHHMM,
-                isPend ? "Pendiente" : f.extrasHHMM,
-                isPend ? "PENDIENTE" : "CERRADO"
-              ];
-            });
+            // Agrupar fichajes por empleado siguiendo el orden de resumenPorEmpleado
+            const empleadosConFichajes = resumenPorEmpleado.filter(emp =>
+              fichajesEnriquecidos.some(f => f.usuario === emp.usuario)
+            );
 
-            doc.autoTable({
-              startY: nextY + 4,
-              head: [["Fecha", "Empleado", "Ingreso", "Egreso", "Total trabajado", "Horas normales", "Horas extra", "Estado"]],
-              body: bodyDetalle,
-              theme: "striped",
-              headStyles: {
-                fillColor: [124, 81, 48],
-                textColor: [255, 255, 255],
-                fontStyle: "bold",
-                fontSize: 8.6
-              },
-              styles: {
-                fontSize: 8.5,
-                cellPadding: 2.5,
-                textColor: [31, 20, 13]
-              },
-              columnStyles: {
-                0: { halign: "center" },
-                2: { halign: "center" },
-                3: { halign: "center" },
-                4: { halign: "right", fontStyle: "bold" },
-                5: { halign: "right" },
-                6: { halign: "right", fontStyle: "bold" },
-                7: { halign: "center" }
+            empleadosConFichajes.forEach((emp) => {
+              const turnosEmp = fichajesEnriquecidos
+                .filter(f => f.usuario === emp.usuario)
+                .sort((a, b) => (a.fecha > b.fecha ? 1 : a.fecha < b.fecha ? -1 : (a.ingresoTS || 0) - (b.ingresoTS || 0)));
+
+              if (currentY > 242) {
+                doc.addPage();
+                currentY = 18;
               }
+
+              // Encabezado de ficha individual del empleado
+              doc.setFillColor(244, 235, 226); // #f4ebe2
+              doc.setDrawColor(185, 128, 70);
+              doc.setLineWidth(0.35);
+              doc.roundedRect(12, currentY + 2, 186, 10.5, 2, 2, "FD");
+              doc.setFillColor(26, 16, 10);
+              doc.rect(12, currentY + 2, 3, 10.5, "F");
+
+              doc.setFont("helvetica", "bold");
+              doc.setFontSize(9.2);
+              doc.setTextColor(26, 16, 10);
+              doc.text(
+                `${emp.nombre} (@${emp.usuario})  —  Jornada diaria: ${emp.jornadaHoras} h (${emp.jornadaHHMM} hs)`,
+                18,
+                currentY + 8.6
+              );
+
+              doc.setFont("helvetica", "bold");
+              doc.setFontSize(8.2);
+              doc.setTextColor(91, 61, 34);
+              doc.text(
+                `Total: ${emp.totalTrabajadoHHMM} hs (${formatMinutosEnPalabras(emp.minutosTrabajados)})  |  Normales: ${emp.horasNormalesHHMM} hs  |  Extras: ${emp.horasExtrasHHMM} hs`,
+                195,
+                currentY + 8.6,
+                { align: "right" }
+              );
+
+              const bodyTurnosEmp = turnosEmp.map(f => {
+                const isPend = f.estado !== "CERRADO";
+                return [
+                  formatFechaConDiaSemanaAR(f.fecha),
+                  f.ingreso ? `${f.ingreso} hs` : "—",
+                  isPend ? "Sin salida" : (f.egreso ? `${f.egreso} hs` : "—"),
+                  isPend ? "Pendiente" : `${f.totalHHMM} hs  (${formatMinutosEnPalabras(f.minutosTrabajados)})`,
+                  isPend ? "Pendiente" : `${f.normalesHHMM} hs  (${formatMinutosEnPalabras(f.minutosNormales)})`,
+                  isPend ? "Pendiente" : `${f.extrasHHMM} hs  (${formatMinutosEnPalabras(f.minutosExtras)})`,
+                  isPend ? "PENDIENTE" : "CERRADO"
+                ];
+              });
+
+              doc.autoTable({
+                startY: currentY + 14,
+                margin: { left: 12, right: 12 },
+                head: [[
+                  "Día y Fecha",
+                  "Hora Ingreso",
+                  "Hora Egreso",
+                  "Total Trabajado (HH:MM · h/min)",
+                  "Horas Normales (HH:MM · h/min)",
+                  "Horas Extra (HH:MM · h/min)",
+                  "Estado"
+                ]],
+                body: bodyTurnosEmp,
+                foot: [[
+                  `SUBTOTAL ${emp.nombre.toUpperCase()}`,
+                  "",
+                  `${emp.turnosCerrados} cerrado(s)`,
+                  `${emp.totalTrabajadoHHMM} hs (${formatMinutosEnPalabras(emp.minutosTrabajados)})`,
+                  `${emp.horasNormalesHHMM} hs (${formatMinutosEnPalabras(emp.minutosNormales)})`,
+                  `${emp.horasExtrasHHMM} hs (${formatMinutosEnPalabras(emp.minutosExtras)})`,
+                  emp.turnosAbiertos > 0 ? `${emp.turnosAbiertos} PEND.` : "OK"
+                ]],
+                theme: "grid",
+                headStyles: {
+                  fillColor: [91, 61, 34],
+                  textColor: [255, 255, 255],
+                  fontStyle: "bold",
+                  fontSize: 7.8,
+                  halign: "center",
+                  cellPadding: 2.2
+                },
+                footStyles: {
+                  fillColor: [238, 228, 217],
+                  textColor: [26, 16, 10],
+                  fontStyle: "bold",
+                  fontSize: 7.8,
+                  cellPadding: 2.4
+                },
+                styles: {
+                  fontSize: 7.9,
+                  cellPadding: 2.2,
+                  textColor: [31, 20, 13],
+                  valign: "middle",
+                  lineColor: [228, 218, 208],
+                  lineWidth: 0.2
+                },
+                alternateRowStyles: {
+                  fillColor: [252, 250, 247]
+                },
+                columnStyles: {
+                  0: { halign: "left", fontStyle: "bold", cellWidth: 25 },
+                  1: { halign: "center", cellWidth: 20 },
+                  2: { halign: "center", cellWidth: 20 },
+                  3: { halign: "right", fontStyle: "bold", cellWidth: 36 },
+                  4: { halign: "right", textColor: [21, 128, 61], cellWidth: 36 },
+                  5: { halign: "right", fontStyle: "bold", cellWidth: 33 },
+                  6: { halign: "center", fontStyle: "bold", cellWidth: 16 }
+                },
+                didParseCell: function(hookData) {
+                  if (hookData.section === "body") {
+                    const t = turnosEmp[hookData.row.index];
+                    if (t && t.estado !== "CERRADO") {
+                      if (hookData.column.index === 6) {
+                        hookData.cell.styles.fillColor = [254, 243, 199];
+                        hookData.cell.styles.textColor = [146, 64, 14];
+                      }
+                    } else if (t && hookData.column.index === 5) {
+                      if (t.minutosExtras > 0) {
+                        hookData.cell.styles.fillColor = [254, 243, 199];
+                        hookData.cell.styles.textColor = [146, 64, 14];
+                      } else {
+                        hookData.cell.styles.textColor = [130, 115, 105];
+                      }
+                    } else if (t && hookData.column.index === 6) {
+                      hookData.cell.styles.textColor = [21, 128, 61];
+                    }
+                  }
+                  if (hookData.section === "foot" && hookData.column.index >= 3 && hookData.column.index <= 5) {
+                    hookData.cell.styles.halign = "right";
+                  }
+                }
+              });
+
+              currentY = doc.lastAutoTable.finalY + 6;
             });
           }
 
+          // ==================================================================
+          // 5. BLOQUE DE CONFORMIDAD Y FIRMAS AL FINAL DEL DOCUMENTO
+          // ==================================================================
+          if (currentY > 245) {
+            doc.addPage();
+            currentY = 22;
+          } else {
+            currentY += 8;
+          }
+
+          doc.setFillColor(250, 246, 242);
+          doc.setDrawColor(210, 195, 180);
+          doc.setLineWidth(0.3);
+          doc.roundedRect(12, currentY, 186, 28, 2.5, 2.5, "FD");
+
+          doc.setFont("helvetica", "normal");
+          doc.setFontSize(7.8);
+          doc.setTextColor(100, 82, 68);
+          doc.text(
+            "Nota de liquidación: Las horas normales corresponden al tiempo trabajado hasta completar la jornada diaria configurada de cada empleado.",
+            16,
+            currentY + 6
+          );
+          doc.text(
+            "El excedente diario se computa como Hora Extra y se acumula de forma íntegra sin compensarse con jornadas más cortas de otros días.",
+            16,
+            currentY + 10.5
+          );
+
+          // Líneas de firma
+          doc.setDrawColor(120, 95, 75);
+          doc.setLineWidth(0.35);
+          doc.line(28, currentY + 21, 88, currentY + 21);
+          doc.line(122, currentY + 21, 182, currentY + 21);
+
+          doc.setFont("helvetica", "bold");
+          doc.setFontSize(8);
+          doc.setTextColor(45, 30, 18);
+          doc.text("Firma y Sello · Administración El Patrón", 58, currentY + 25.2, { align: "center" });
+          doc.text("Firma y Aclaración · Conformidad Empleado", 152, currentY + 25.2, { align: "center" });
+
+          // ==================================================================
+          // 6. PIE DE PÁGINA CON NUMERACIÓN EN TODAS LAS HOJAS
+          // ==================================================================
+          const totalPages = doc.internal.getNumberOfPages();
+          for (let p = 1; p <= totalPages; p++) {
+            doc.setPage(p);
+            doc.setDrawColor(217, 160, 95);
+            doc.setLineWidth(0.3);
+            doc.line(12, 287, 198, 287);
+
+            doc.setFont("helvetica", "normal");
+            doc.setFontSize(7.8);
+            doc.setTextColor(110, 90, 75);
+            doc.text(
+              `El Patrón · Sistema de Fichaje y Liquidación de Horas · Período: ${mesNombre}`,
+              12,
+              291.5
+            );
+            doc.setFont("helvetica", "bold");
+            doc.text(`Página ${p} de ${totalPages}`, 198, 291.5, { align: "right" });
+          }
+
           const suffix = usuarioFiltro !== "todos" ? `_${usuarioFiltro}` : "";
-          doc.save(`Horas_El_Patron_${ym}${suffix}.pdf`);
+          doc.save(`Liquidacion_Horas_El_Patron_${ym}${suffix}.pdf`);
           showToast(`PDF de ${mesNombre} descargado correctamente.`, "success");
           return;
         }
