@@ -1,12 +1,19 @@
 /**
  * EL PATRÓN — MÓDULO DE FICHAJE (Control de Horarios)
- * Backend optimizado de alta velocidad para Google Apps Script + Google Sheets.
+ * Backend optimizado para Google Apps Script + Google Sheets.
  * Zona horaria fija: America/Argentina/Cordoba
+ *
+ * Incluye:
+ * - Cálculo de horas por empleado y por día (Total trabajado, Horas normales y Horas extra en HH:MM).
+ * - Jornada diaria configurable por empleado (8 h = 480 min por defecto).
+ * - Las horas extra de cada día se suman sin compensarse con jornadas más cortas.
+ * - Los turnos abiertos quedan como PENDIENTE sin afectar la suma de cerrados.
  */
 
 const TZ = 'America/Argentina/Cordoba';
 const SALT = 'EL_PATRON_FICHAJE_SALT_2026_CBA_AR_#94653f';
-const SESSION_TTL_SECONDS = 21600; // 6 horas (6 * 60 * 60)
+const SESSION_TTL_SECONDS = 21600; // 6 horas
+const DEFAULT_JORNADA_HORAS = 8; // 8 horas diarias por defecto (480 min)
 
 const SHEET_USUARIOS = 'Usuarios';
 const SHEET_FICHAJES = 'Fichajes';
@@ -26,6 +33,7 @@ function getSS_() {
 /**
  * Inicializa la planilla creando las hojas "Usuarios" y "Fichajes"
  * y el usuario inicial: dueno / PIN 1234 (rol: dueño).
+ * Conserva todos los registros existentes.
  */
 function setup() {
   const ss = getSS_();
@@ -39,19 +47,29 @@ function setup() {
     Logger.log('Aviso al configurar zona horaria: ' + err);
   }
 
-  // 1. Hoja Usuarios: Usuario, Nombre, Rol, PIN hash, Activo, Creado
+  // 1. Hoja Usuarios: Usuario, Nombre, Rol, PIN hash, Activo, Creado, Jornada hs
   let shUsuarios = ss.getSheetByName(SHEET_USUARIOS);
   if (!shUsuarios) {
     shUsuarios = ss.insertSheet(SHEET_USUARIOS);
   }
   if (shUsuarios.getLastRow() === 0) {
-    const headersU = ['Usuario', 'Nombre', 'Rol', 'PIN hash', 'Activo', 'Creado'];
+    const headersU = ['Usuario', 'Nombre', 'Rol', 'PIN hash', 'Activo', 'Creado', 'Jornada hs'];
     shUsuarios.getRange(1, 1, 1, headersU.length).setValues([headersU]);
     shUsuarios.getRange(1, 1, 1, headersU.length)
       .setFontWeight('bold')
       .setBackground('#1a100a')
       .setFontColor('#d9a05f');
     shUsuarios.setFrozenRows(1);
+  } else {
+    // Asegurar encabezado de columna 7 ("Jornada hs") sin alterar datos existentes
+    const col7Header = String(shUsuarios.getRange(1, 7).getValue() || '').trim();
+    if (!col7Header) {
+      shUsuarios.getRange(1, 7)
+        .setValue('Jornada hs')
+        .setFontWeight('bold')
+        .setBackground('#1a100a')
+        .setFontColor('#d9a05f');
+    }
   }
 
   const usuariosData = shUsuarios.getDataRange().getValues();
@@ -69,7 +87,7 @@ function setup() {
   if (!existeDueno) {
     const pinHash = hashPin_('1234', 'dueno');
     const nextRow = shUsuarios.getLastRow() + 1;
-    const rng = shUsuarios.getRange(nextRow, 1, 1, 6);
+    const rng = shUsuarios.getRange(nextRow, 1, 1, 7);
     rng.setNumberFormat('@');
     rng.setValues([[
       'dueno',
@@ -77,7 +95,8 @@ function setup() {
       'dueño',
       pinHash,
       'SI',
-      ahoraStr
+      ahoraStr,
+      String(DEFAULT_JORNADA_HORAS)
     ]]);
   }
 
@@ -116,9 +135,6 @@ function setup() {
   return 'Setup completado con éxito. Usuario inicial: dueno / PIN: 1234';
 }
 
-/**
- * Endpoint informativo para verificar en el navegador que el Web App está activo.
- */
 function doGet() {
   try {
     setup();
@@ -133,10 +149,6 @@ function doGet() {
   });
 }
 
-/**
- * Endpoint principal. Recibe JSON enviado como text/plain para evitar el preflight CORS.
- * Cuerpo esperado: { action, token, ...datos }
- */
 function doPost(e) {
   try {
     if (!e || !e.postData || !e.postData.contents) {
@@ -196,6 +208,10 @@ function doPost(e) {
         if (!isDueno_(currentUser)) return forbiddenResponse_();
         return handleCrearEmpleado_(body);
 
+      case 'cambiarJornada':
+        if (!isDueno_(currentUser)) return forbiddenResponse_();
+        return handleCambiarJornada_(body);
+
       case 'toggleEmpleado':
         if (!isDueno_(currentUser)) return forbiddenResponse_();
         return handleToggleEmpleado_(currentUser, body);
@@ -225,12 +241,9 @@ function doPost(e) {
 }
 
 /* ==========================================================================
- * MANEJADORES DE ACCIONES (OPTIMIZADOS)
+ * MANEJADORES DE ACCIONES
  * ========================================================================== */
 
-/**
- * 1. LOGIN: Valida usuario y PIN y genera token en CacheService por 6 horas.
- */
 function handleLogin_(body) {
   const usuarioInput = normalizeUsername_(body.usuario);
   const pinInput = String(body.pin || '').trim();
@@ -272,7 +285,6 @@ function handleLogin_(body) {
   const shifts = getAllShifts_();
   const estadoData = buildEstadoUsuarioFromShifts_(user, shifts);
 
-  // Si es dueño, devolvemos también la nómina inicial para que la pestaña Empleados abra al instante
   let empleadosInit = null;
   if (isDueno_(user)) {
     empleadosInit = buildEmpleadosPayload_(getAllUsers_(), shifts);
@@ -284,17 +296,14 @@ function handleLogin_(body) {
     usuario: {
       usuario: user.usuario,
       nombre: user.nombre,
-      rol: user.rol
+      rol: user.rol,
+      jornadaHoras: user.jornadaHoras
     },
     estado: estadoData,
     empleadosInit: empleadosInit
   });
 }
 
-/**
- * 2. ESTADO: Devuelve si el empleado está en turno, el turno abierto
- * y la lista de fichajes de hoy con su total.
- */
 function handleEstado_(user) {
   const shifts = getAllShifts_();
   const estado = buildEstadoUsuarioFromShifts_(user, shifts);
@@ -303,15 +312,13 @@ function handleEstado_(user) {
     usuario: {
       usuario: user.usuario,
       nombre: user.nombre,
-      rol: user.rol
+      rol: user.rol,
+      jornadaHoras: user.jornadaHoras
     },
     ...estado
   });
 }
 
-/**
- * 3. INGRESO: Registra entrada del empleado en una sola lectura y escritura.
- */
 function handleIngreso_(user) {
   const lock = LockService.getScriptLock();
   try {
@@ -363,7 +370,6 @@ function handleIngreso_(user) {
     rng.setNumberFormat('@');
     rng.setValues([newRow]);
 
-    // Actualizar en memoria sin releer toda la hoja
     shifts.push({
       rowNumber: rowIdx,
       id: id,
@@ -390,9 +396,6 @@ function handleIngreso_(user) {
   }
 }
 
-/**
- * 4. EGRESO: Cierra el turno abierto del empleado en una sola operación por lotes.
- */
 function handleEgreso_(user) {
   const lock = LockService.getScriptLock();
   try {
@@ -422,9 +425,8 @@ function handleEgreso_(user) {
     const now = new Date();
     const egresoMs = Math.max(now.getTime(), openShift.ingresoTS + 1000);
     const horaEgreso = formatTimeHM_(new Date(egresoMs));
-    const calc = calculateDuration_(openShift.ingresoTS, egresoMs);
+    const calc = calculateDurationExact_(openShift.ingreso, horaEgreso, openShift.ingresoTS, egresoMs);
 
-    // Escritura en bloque único (columnas 6 a 11: Egreso, Horas decimal, Duración hh:mm, Estado, IngresoTS, EgresoTS)
     const rng = sh.getRange(openShift.rowNumber, 6, 1, 6);
     rng.setNumberFormat('@');
     rng.setValues([[
@@ -436,7 +438,6 @@ function handleEgreso_(user) {
       String(egresoMs)
     ]]);
 
-    // Actualizar en memoria sin volver a leer toda la planilla
     openShift.egreso = horaEgreso;
     openShift.horasDecimal = calc.horasDecimal;
     openShift.duracion = calc.duracionHHMM;
@@ -454,9 +455,6 @@ function handleEgreso_(user) {
   }
 }
 
-/**
- * 5. MIS HORAS: Filtra los fichajes del usuario logueado por rango de fechas.
- */
 function handleMisHoras_(user, body) {
   const defaults = getCurrentMonthRange_();
   const desde = normalizeDateFilter_(body.desde, defaults.desde);
@@ -467,27 +465,27 @@ function handleMisHoras_(user, body) {
     return item.usuario === user.usuario && item.fecha >= desde && item.fecha <= hasta;
   });
 
-  filtered.sort(function(a, b) {
-    return (b.ingresoTS || 0) - (a.ingresoTS || 0);
-  });
+  const jornadaMap = {};
+  jornadaMap[user.usuario] = user.jornadaHoras || DEFAULT_JORNADA_HORAS;
 
-  const totals = summarizeShifts_(filtered);
+  const processed = computeDailyAndMonthlyHours_(filtered, jornadaMap, [user]);
 
   return jsonResponse_({
     ok: true,
     desde: desde,
     hasta: hasta,
-    fichajes: filtered,
-    totalHorasDecimal: totals.totalHorasDecimal,
-    totalDuracionHHMM: totals.totalDuracionHHMM,
-    totalMinutos: totals.totalMinutos,
+    jornadaHoras: user.jornadaHoras || DEFAULT_JORNADA_HORAS,
+    fichajes: processed.fichajesEnriquecidos,
+    resumenDiario: processed.resumenDiario,
+    totalDuracionHHMM: processed.totalesGenerales.totalTrabajadoHHMM,
+    totalNormalesHHMM: processed.totalesGenerales.horasNormalesHHMM,
+    totalExtrasHHMM: processed.totalesGenerales.horasExtrasHHMM,
+    totalHorasDecimal: processed.totalesGenerales.horasDecimal,
+    totalMinutos: processed.totalesGenerales.minutosTrabajados,
     cantidadTurnos: filtered.length
   });
 }
 
-/**
- * 6. CAMBIAR PIN (Mi cuenta)
- */
 function handleCambiarPin_(user, body) {
   const pinActual = String(body.pinActual || '').trim();
   const pinNuevo = String(body.pinNuevo || '').trim();
@@ -524,9 +522,6 @@ function handleCambiarPin_(user, body) {
   }
 }
 
-/**
- * 7. EMPLEADOS (Solo dueño): Lista todos los empleados y quién está adentro ahora.
- */
 function handleEmpleados_() {
   const users = getAllUsers_();
   const shifts = getAllShifts_();
@@ -537,15 +532,13 @@ function handleEmpleados_() {
   });
 }
 
-/**
- * 8. CREAR EMPLEADO (Solo dueño)
- */
 function handleCrearEmpleado_(body) {
   const nombre = String(body.nombre || '').trim();
   const usuario = normalizeUsername_(body.usuario);
   const pin = String(body.pin || '').trim();
   const rolInput = String(body.rol || 'empleado').trim().toLowerCase();
   const rol = (rolInput === 'dueño' || rolInput === 'dueno') ? 'dueño' : 'empleado';
+  const jornadaHoras = parseJornadaHoras_(body.jornadaHoras);
 
   if (!nombre || nombre.length < 2) {
     return errorResponse_('Ingresá el nombre completo del empleado.', 'INVALID_NAME');
@@ -572,7 +565,7 @@ function handleCrearEmpleado_(body) {
     const creado = formatNowDateTime_();
     const rowIdx = sh.getLastRow() + 1;
 
-    const rng = sh.getRange(rowIdx, 1, 1, 6);
+    const rng = sh.getRange(rowIdx, 1, 1, 7);
     rng.setNumberFormat('@');
     rng.setValues([[
       usuario,
@@ -580,7 +573,8 @@ function handleCrearEmpleado_(body) {
       rol,
       pinHash,
       'SI',
-      creado
+      creado,
+      String(jornadaHoras)
     ]]);
     invalidateUsersCache_();
 
@@ -591,13 +585,14 @@ function handleCrearEmpleado_(body) {
       rol: rol,
       pinHash: pinHash,
       activo: true,
-      creado: creado
+      creado: creado,
+      jornadaHoras: jornadaHoras
     });
 
     const payload = buildEmpleadosPayload_(users, getAllShifts_());
     return jsonResponse_({
       ok: true,
-      mensaje: 'Empleado "' + nombre + '" (' + usuario + ') creado con éxito.',
+      mensaje: 'Empleado "' + nombre + '" (' + usuario + ') creado con jornada diaria de ' + jornadaHoras + ' h.',
       ...payload
     });
   } finally {
@@ -605,9 +600,49 @@ function handleCrearEmpleado_(body) {
   }
 }
 
-/**
- * 9. TOGGLE EMPLEADO (Solo dueño): Habilita o deshabilita un empleado.
- */
+function handleCambiarJornada_(body) {
+  const targetUsername = normalizeUsername_(body.usuario);
+  const jornadaHoras = parseJornadaHoras_(body.jornadaHoras);
+
+  if (!targetUsername) {
+    return errorResponse_('Falta indicar el usuario del empleado.', 'MISSING_USER');
+  }
+
+  const lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+  try {
+    const users = getAllUsers_();
+    let target = null;
+    for (let i = 0; i < users.length; i++) {
+      if (users[i].usuario === targetUsername) {
+        target = users[i];
+        break;
+      }
+    }
+    if (!target) {
+      return errorResponse_('No se encontró el empleado "' + targetUsername + '".', 'USER_NOT_FOUND');
+    }
+
+    const sh = getSheetUsuarios_();
+    if (sh.getRange(1, 7).getValue() === '') {
+      sh.getRange(1, 7).setValue('Jornada hs').setFontWeight('bold').setBackground('#1a100a').setFontColor('#d9a05f');
+    }
+    sh.getRange(target.rowNumber, 7).setNumberFormat('@').setValue(String(jornadaHoras));
+    target.jornadaHoras = jornadaHoras;
+    invalidateUsersCache_();
+
+    const payload = buildEmpleadosPayload_(users, getAllShifts_());
+    return jsonResponse_({
+      ok: true,
+      jornadaHoras: jornadaHoras,
+      mensaje: 'Jornada diaria de "' + target.nombre + '" actualizada a ' + jornadaHoras + ' h (' + minutesToHHMM_(Math.round(jornadaHoras * 60)) + ').',
+      ...payload
+    });
+  } finally {
+    lock.releaseLock();
+  }
+}
+
 function handleToggleEmpleado_(currentUser, body) {
   const targetUsername = normalizeUsername_(body.usuario);
   if (!targetUsername) {
@@ -650,9 +685,6 @@ function handleToggleEmpleado_(currentUser, body) {
   }
 }
 
-/**
- * 10. ELIMINAR EMPLEADO (Solo dueño): Elimina la fila del empleado en la hoja Usuarios.
- */
 function handleEliminarEmpleado_(currentUser, body) {
   const targetUsername = normalizeUsername_(body.usuario);
   if (!targetUsername) {
@@ -694,9 +726,6 @@ function handleEliminarEmpleado_(currentUser, body) {
   }
 }
 
-/**
- * 11. RESET PIN (Solo dueño)
- */
 function handleResetPin_(body) {
   const targetUsername = normalizeUsername_(body.usuario);
   const nuevoPin = String(body.pin || '').trim();
@@ -730,9 +759,6 @@ function handleResetPin_(body) {
   }
 }
 
-/**
- * 12. EGRESO FORZADO (Solo dueño)
- */
 function handleEgresoForzado_(body) {
   const targetUsername = normalizeUsername_(body.usuario);
   const horaOpcional = String(body.hora || '').trim();
@@ -778,7 +804,7 @@ function handleEgresoForzado_(body) {
       horaEgreso = formatTimeHM_(new Date(egresoMs));
     }
 
-    const calc = calculateDuration_(openShift.ingresoTS, egresoMs);
+    const calc = calculateDurationExact_(openShift.ingreso, horaEgreso, openShift.ingresoTS, egresoMs);
 
     const rng = sh.getRange(openShift.rowNumber, 6, 1, 6);
     rng.setNumberFormat('@');
@@ -809,7 +835,12 @@ function handleEgresoForzado_(body) {
 }
 
 /**
- * 13. REPORTE (Solo dueño)
+ * REPORTE MENSUAL Y POR PERÍODO (Solo dueño):
+ * Calcula por empleado y por día:
+ * - Total trabajado (HH:MM)
+ * - Horas normales (hasta su jornada diaria configurada, 8 h por defecto)
+ * - Horas extra (lo que supere la jornada diaria ese día, sin compensar con días más cortos)
+ * - Turnos abiertos quedan como PENDIENTE
  */
 function handleReporte_(body) {
   const defaults = getCurrentMonthRange_();
@@ -820,53 +851,22 @@ function handleReporte_(body) {
   const users = getAllUsers_();
   const allShifts = getAllShifts_();
 
+  const jornadaMap = {};
+  users.forEach(function(u) {
+    jornadaMap[u.usuario] = u.jornadaHoras || DEFAULT_JORNADA_HORAS;
+  });
+
   const filtered = allShifts.filter(function(s) {
     const matchDate = s.fecha >= desde && s.fecha <= hasta;
     const matchUser = !empleadoFiltro || empleadoFiltro === 'todos' || s.usuario === empleadoFiltro;
     return matchDate && matchUser;
   });
 
-  filtered.sort(function(a, b) {
-    return (b.ingresoTS || 0) - (a.ingresoTS || 0);
-  });
+  const targetUsers = (!empleadoFiltro || empleadoFiltro === 'todos')
+    ? users
+    : users.filter(function(u) { return u.usuario === empleadoFiltro; });
 
-  const mapResumen = {};
-  filtered.forEach(function(s) {
-    if (!mapResumen[s.usuario]) {
-      mapResumen[s.usuario] = {
-        usuario: s.usuario,
-        nombre: s.nombre,
-        turnosCerrados: 0,
-        turnosAbiertos: 0,
-        minutosTotales: 0
-      };
-    }
-    const item = mapResumen[s.usuario];
-    if (s.estado === 'ABIERTO') {
-      item.turnosAbiertos += 1;
-    } else {
-      item.turnosCerrados += 1;
-      item.minutosTotales += durationToMinutes_(s.duracion, s.horasDecimal);
-    }
-  });
-
-  const resumenPorEmpleado = Object.keys(mapResumen).map(function(key) {
-    const r = mapResumen[key];
-    const dec = Math.round((r.minutosTotales / 60) * 100) / 100;
-    return {
-      usuario: r.usuario,
-      nombre: r.nombre,
-      turnosCerrados: r.turnosCerrados,
-      turnosAbiertos: r.turnosAbiertos,
-      totalTurnos: r.turnosCerrados + r.turnosAbiertos,
-      horasDecimal: dec,
-      duracionHHMM: minutesToHHMM_(r.minutosTotales)
-    };
-  }).sort(function(a, b) {
-    return b.horasDecimal - a.horasDecimal;
-  });
-
-  const totals = summarizeShifts_(filtered);
+  const processed = computeDailyAndMonthlyHours_(filtered, jornadaMap, targetUsers);
 
   return jsonResponse_({
     ok: true,
@@ -874,18 +874,250 @@ function handleReporte_(body) {
     hasta: hasta,
     usuarioFiltro: empleadoFiltro || 'todos',
     empleadosLista: users.map(function(u) {
-      return { usuario: u.usuario, nombre: u.nombre, activo: u.activo };
+      return {
+        usuario: u.usuario,
+        nombre: u.nombre,
+        activo: u.activo,
+        jornadaHoras: u.jornadaHoras || DEFAULT_JORNADA_HORAS
+      };
     }),
-    resumenPorEmpleado: resumenPorEmpleado,
-    fichajes: filtered,
-    totalGeneralDecimal: totals.totalHorasDecimal,
-    totalGeneralHHMM: totals.totalDuracionHHMM,
+    resumenPorEmpleado: processed.resumenPorEmpleado,
+    resumenDiario: processed.resumenDiario,
+    fichajes: processed.fichajesEnriquecidos,
+    totalGeneralHHMM: processed.totalesGenerales.totalTrabajadoHHMM,
+    totalGeneralNormalesHHMM: processed.totalesGenerales.horasNormalesHHMM,
+    totalGeneralExtrasHHMM: processed.totalesGenerales.horasExtrasHHMM,
+    totalGeneralDecimal: processed.totalesGenerales.horasDecimal,
     cantidadTurnos: filtered.length
   });
 }
 
 /* ==========================================================================
- * FUNCIONES AUXILIARES DE DATOS Y CACHÉ RÁPIDA
+ * MOTOR DE CÁLCULO DIARIO Y MENSUAL (NORMALES Y EXTRAS EN MINUTOS EXACTOS)
+ * ========================================================================== */
+
+/**
+ * Calcula las horas trabajadas, normales y extras agrupando por empleado y por día.
+ * - Suma los turnos cerrados del día y registra como extra lo que supere la jornada diaria (8 h por defecto).
+ * - Suma las extras de cada día sin compensarlas con jornadas más cortas.
+ * - Deja los turnos abiertos como PENDIENTE.
+ */
+function computeDailyAndMonthlyHours_(shifts, jornadaMap, usersList) {
+  // 1. Clonar y ordenar cronológicamente (ascendente) para acumular correctamente dentro de cada día
+  const sortedAsc = shifts.map(function(s) {
+    return Object.assign({}, s);
+  }).sort(function(a, b) {
+    if (a.fecha !== b.fecha) return a.fecha < b.fecha ? -1 : 1;
+    return (a.ingresoTS || 0) - (b.ingresoTS || 0);
+  });
+
+  const dayAccumByUserDate = {};
+  const dayGroupMap = {};
+
+  sortedAsc.forEach(function(s) {
+    const u = s.usuario;
+    const f = s.fecha;
+    const key = u + '|' + f;
+    const jornadaHoras = (jornadaMap && jornadaMap[u]) ? Number(jornadaMap[u]) : DEFAULT_JORNADA_HORAS;
+    const jornadaMin = Math.round(jornadaHoras * 60);
+
+    if (!dayAccumByUserDate[key]) {
+      dayAccumByUserDate[key] = 0;
+    }
+    if (!dayGroupMap[key]) {
+      dayGroupMap[key] = {
+        usuario: u,
+        nombre: s.nombre,
+        fecha: f,
+        jornadaHoras: jornadaHoras,
+        jornadaHHMM: minutesToHHMM_(jornadaMin),
+        ingresos: [],
+        egresos: [],
+        turnosCerrados: 0,
+        turnosPendientes: 0,
+        minutosTrabajados: 0,
+        minutosNormales: 0,
+        minutosExtras: 0
+      };
+    }
+
+    const grp = dayGroupMap[key];
+    if (s.ingreso) grp.ingresos.push(s.ingreso);
+
+    if (s.estado !== 'CERRADO') {
+      // Turno abierto -> queda como PENDIENTE
+      s.esPendiente = true;
+      s.estadoDisplay = 'PENDIENTE';
+      s.minutosTrabajados = 0;
+      s.minutosNormales = 0;
+      s.minutosExtras = 0;
+      s.totalHHMM = 'Pendiente';
+      s.normalesHHMM = 'Pendiente';
+      s.extrasHHMM = 'Pendiente';
+      grp.turnosPendientes += 1;
+      grp.egresos.push('Pendiente');
+    } else {
+      const durMin = getExactShiftMinutes_(s);
+      const prevAcum = dayAccumByUserDate[key];
+      const nuevoAcum = prevAcum + durMin;
+      dayAccumByUserDate[key] = nuevoAcum;
+
+      const normMin = Math.max(0, Math.min(nuevoAcum, jornadaMin) - Math.min(prevAcum, jornadaMin));
+      const extMin = Math.max(0, durMin - normMin);
+
+      s.esPendiente = false;
+      s.estadoDisplay = 'CERRADO';
+      s.minutosTrabajados = durMin;
+      s.minutosNormales = normMin;
+      s.minutosExtras = extMin;
+      s.duracion = minutesToHHMM_(durMin);
+      s.totalHHMM = minutesToHHMM_(durMin);
+      s.normalesHHMM = minutesToHHMM_(normMin);
+      s.extrasHHMM = minutesToHHMM_(extMin);
+      s.horasDecimal = Math.round((durMin / 60) * 100) / 100;
+
+      grp.turnosCerrados += 1;
+      if (s.egreso) grp.egresos.push(s.egreso);
+      grp.minutosTrabajados = nuevoAcum;
+      grp.minutosNormales = Math.min(nuevoAcum, jornadaMin);
+      grp.minutosExtras = Math.max(0, nuevoAcum - jornadaMin);
+    }
+  });
+
+  // 2. Construir lista de resumen diario ordenada de más reciente a más antigua
+  const resumenDiario = Object.keys(dayGroupMap).map(function(k) {
+    const d = dayGroupMap[k];
+    return {
+      usuario: d.usuario,
+      nombre: d.nombre,
+      fecha: d.fecha,
+      jornadaHoras: d.jornadaHoras,
+      jornadaHHMM: d.jornadaHHMM,
+      ingreso: d.ingresos.length > 0 ? d.ingresos.join(' / ') : '—',
+      egreso: d.egresos.length > 0 ? d.egresos.join(' / ') : '—',
+      turnosCerrados: d.turnosCerrados,
+      turnosPendientes: d.turnosPendientes,
+      minutosTrabajados: d.minutosTrabajados,
+      minutosNormales: d.minutosNormales,
+      minutosExtras: d.minutosExtras,
+      totalHHMM: minutesToHHMM_(d.minutosTrabajados),
+      normalesHHMM: minutesToHHMM_(d.minutosNormales),
+      extrasHHMM: minutesToHHMM_(d.minutosExtras),
+      estado: d.turnosPendientes > 0 ? 'PENDIENTE' : 'CERRADO'
+    };
+  }).sort(function(a, b) {
+    if (a.fecha !== b.fecha) return a.fecha > b.fecha ? -1 : 1;
+    return a.nombre.localeCompare(b.nombre);
+  });
+
+  // 3. Resumen mensual por empleado (sumando cada día sin compensar extras con días más cortos)
+  const empMap = {};
+  if (Array.isArray(usersList)) {
+    usersList.forEach(function(u) {
+      const jH = (jornadaMap && jornadaMap[u.usuario]) ? Number(jornadaMap[u.usuario]) : (u.jornadaHoras || DEFAULT_JORNADA_HORAS);
+      empMap[u.usuario] = {
+        usuario: u.usuario,
+        nombre: u.nombre,
+        jornadaHoras: jH,
+        jornadaHHMM: minutesToHHMM_(Math.round(jH * 60)),
+        diasTrabajados: 0,
+        turnosCerrados: 0,
+        turnosAbiertos: 0,
+        minutosTrabajados: 0,
+        minutosNormales: 0,
+        minutosExtras: 0
+      };
+    });
+  }
+
+  Object.keys(dayGroupMap).forEach(function(k) {
+    const d = dayGroupMap[k];
+    if (!empMap[d.usuario]) {
+      empMap[d.usuario] = {
+        usuario: d.usuario,
+        nombre: d.nombre,
+        jornadaHoras: d.jornadaHoras,
+        jornadaHHMM: d.jornadaHHMM,
+        diasTrabajados: 0,
+        turnosCerrados: 0,
+        turnosAbiertos: 0,
+        minutosTrabajados: 0,
+        minutosNormales: 0,
+        minutosExtras: 0
+      };
+    }
+    const emp = empMap[d.usuario];
+    if (d.turnosCerrados > 0) emp.diasTrabajados += 1;
+    emp.turnosCerrados += d.turnosCerrados;
+    emp.turnosAbiertos += d.turnosPendientes;
+    emp.minutosTrabajados += d.minutosTrabajados;
+    emp.minutosNormales += d.minutosNormales;
+    emp.minutosExtras += d.minutosExtras;
+  });
+
+  let globalTrabajadosMin = 0;
+  let globalNormalesMin = 0;
+  let globalExtrasMin = 0;
+  let globalCerrados = 0;
+  let globalPendientes = 0;
+
+  const resumenPorEmpleado = Object.keys(empMap).map(function(uKey) {
+    const e = empMap[uKey];
+    globalTrabajadosMin += e.minutosTrabajados;
+    globalNormalesMin += e.minutosNormales;
+    globalExtrasMin += e.minutosExtras;
+    globalCerrados += e.turnosCerrados;
+    globalPendientes += e.turnosAbiertos;
+
+    const dec = Math.round((e.minutosTrabajados / 60) * 100) / 100;
+    return {
+      usuario: e.usuario,
+      nombre: e.nombre,
+      jornadaHoras: e.jornadaHoras,
+      jornadaHHMM: e.jornadaHHMM,
+      diasTrabajados: e.diasTrabajados,
+      turnosCerrados: e.turnosCerrados,
+      turnosAbiertos: e.turnosAbiertos,
+      totalTurnos: e.turnosCerrados + e.turnosAbiertos,
+      minutosTrabajados: e.minutosTrabajados,
+      minutosNormales: e.minutosNormales,
+      minutosExtras: e.minutosExtras,
+      duracionHHMM: minutesToHHMM_(e.minutosTrabajados),
+      totalTrabajadoHHMM: minutesToHHMM_(e.minutosTrabajados),
+      horasNormalesHHMM: minutesToHHMM_(e.minutosNormales),
+      horasExtrasHHMM: minutesToHHMM_(e.minutosExtras),
+      horasDecimal: dec
+    };
+  }).sort(function(a, b) {
+    return b.minutosTrabajados - a.minutosTrabajados;
+  });
+
+  // Ordenar fichajes enriquecidos del más reciente al más antiguo para mostrar en tabla
+  const fichajesDesc = sortedAsc.slice().sort(function(a, b) {
+    if (a.fecha !== b.fecha) return a.fecha > b.fecha ? -1 : 1;
+    return (b.ingresoTS || 0) - (a.ingresoTS || 0);
+  });
+
+  return {
+    fichajesEnriquecidos: fichajesDesc,
+    resumenDiario: resumenDiario,
+    resumenPorEmpleado: resumenPorEmpleado,
+    totalesGenerales: {
+      minutosTrabajados: globalTrabajadosMin,
+      minutosNormales: globalNormalesMin,
+      minutosExtras: globalExtrasMin,
+      totalTrabajadoHHMM: minutesToHHMM_(globalTrabajadosMin),
+      horasNormalesHHMM: minutesToHHMM_(globalNormalesMin),
+      horasExtrasHHMM: minutesToHHMM_(globalExtrasMin),
+      horasDecimal: Math.round((globalTrabajadosMin / 60) * 100) / 100,
+      turnosCerrados: globalCerrados,
+      turnosPendientes: globalPendientes
+    }
+  };
+}
+
+/* ==========================================================================
+ * FUNCIONES AUXILIARES DE DATOS Y HOJAS
  * ========================================================================== */
 
 function getSheetUsuarios_() {
@@ -914,18 +1146,18 @@ function getSheetFichajes_() {
 
 function invalidateUsersCache_() {
   try {
-    CacheService.getScriptCache().remove('USERS_LIST_CACHE_V1');
+    CacheService.getScriptCache().remove('USERS_LIST_CACHE_V2');
   } catch (e) {}
 }
 
 function getAllUsersFast_() {
   try {
-    const cached = CacheService.getScriptCache().get('USERS_LIST_CACHE_V1');
+    const cached = CacheService.getScriptCache().get('USERS_LIST_CACHE_V2');
     if (cached) return JSON.parse(cached);
   } catch (e) {}
   const list = getAllUsers_();
   try {
-    CacheService.getScriptCache().put('USERS_LIST_CACHE_V1', JSON.stringify(list), 120);
+    CacheService.getScriptCache().put('USERS_LIST_CACHE_V2', JSON.stringify(list), 120);
   } catch (e) {}
   return list;
 }
@@ -940,6 +1172,21 @@ function findUserByUsernameFast_(username) {
   return findUserByUsername_(target);
 }
 
+function parseJornadaHoras_(val) {
+  if (val === undefined || val === null || String(val).trim() === '') {
+    return DEFAULT_JORNADA_HORAS;
+  }
+  const s = String(val).trim().replace(',', '.');
+  if (/^\d{1,2}:\d{2}$/.test(s)) {
+    const parts = s.split(':');
+    const h = parseInt(parts[0], 10) + parseInt(parts[1], 10) / 60;
+    return h > 0 && h <= 24 ? Math.round(h * 100) / 100 : DEFAULT_JORNADA_HORAS;
+  }
+  const num = parseFloat(s);
+  if (isNaN(num) || num <= 0 || num > 24) return DEFAULT_JORNADA_HORAS;
+  return Math.round(num * 100) / 100;
+}
+
 function getAllUsers_() {
   const sh = getSheetUsuarios_();
   const values = sh.getDataRange().getValues();
@@ -950,6 +1197,7 @@ function getAllUsers_() {
     if (!usuario) continue;
     const activoRaw = String(row[4] || '').trim().toUpperCase();
     const activo = activoRaw === 'SI' || activoRaw === 'TRUE' || activoRaw === '1' || activoRaw === 'ACTIVO';
+    const jornadaHoras = parseJornadaHoras_(row[6]);
     list.push({
       rowNumber: i + 1,
       usuario: usuario,
@@ -957,7 +1205,8 @@ function getAllUsers_() {
       rol: String(row[2] || 'empleado').trim().toLowerCase(),
       pinHash: String(row[3] || '').trim(),
       activo: activo,
-      creado: formatCellString_(row[5])
+      creado: formatCellString_(row[5]),
+      jornadaHoras: jornadaHoras
     });
   }
   return list;
@@ -1026,12 +1275,15 @@ function buildEmpleadosPayload_(users, shifts) {
 
   const empleados = users.map(function(u) {
     const turnoAbierto = openByUser[u.usuario] || null;
+    const jH = u.jornadaHoras || DEFAULT_JORNADA_HORAS;
     return {
       usuario: u.usuario,
       nombre: u.nombre,
       rol: u.rol,
       activo: u.activo,
       creado: u.creado,
+      jornadaHoras: jH,
+      jornadaHHMM: minutesToHHMM_(Math.round(jH * 60)),
       enTurno: Boolean(turnoAbierto),
       turnoAbierto: turnoAbierto
     };
@@ -1059,7 +1311,7 @@ function buildEmpleadosPayload_(users, shifts) {
 function buildEstadoUsuarioFromShifts_(user, shifts) {
   const hoy = formatDateYMD_(new Date());
   let turnoAbierto = null;
-  const fichajesHoy = [];
+  const fichajesHoyRaw = [];
 
   for (let i = 0; i < shifts.length; i++) {
     const s = shifts[i];
@@ -1068,30 +1320,31 @@ function buildEstadoUsuarioFromShifts_(user, shifts) {
         turnoAbierto = s;
       }
       if (s.fecha === hoy || s.estado === 'ABIERTO') {
-        fichajesHoy.push(s);
+        fichajesHoyRaw.push(s);
       }
     }
   }
 
-  fichajesHoy.sort(function(a, b) {
-    return (b.ingresoTS || 0) - (a.ingresoTS || 0);
-  });
-
-  const totalsHoy = summarizeShifts_(fichajesHoy);
+  const jornadaMap = {};
+  jornadaMap[user.usuario] = user.jornadaHoras || DEFAULT_JORNADA_HORAS;
+  const processedHoy = computeDailyAndMonthlyHours_(fichajesHoyRaw, jornadaMap, [user]);
 
   return {
     enTurno: Boolean(turnoAbierto),
     turnoAbierto: turnoAbierto,
     fechaHoy: hoy,
+    jornadaHoras: user.jornadaHoras || DEFAULT_JORNADA_HORAS,
     serverTimeMs: Date.now(),
-    fichajesHoy: fichajesHoy,
-    totalHoyDecimal: totalsHoy.totalHorasDecimal,
-    totalHoyHHMM: totalsHoy.totalDuracionHHMM
+    fichajesHoy: processedHoy.fichajesEnriquecidos,
+    totalHoyHHMM: processedHoy.totalesGenerales.totalTrabajadoHHMM,
+    totalHoyNormalesHHMM: processedHoy.totalesGenerales.horasNormalesHHMM,
+    totalHoyExtrasHHMM: processedHoy.totalesGenerales.horasExtrasHHMM,
+    totalHoyDecimal: processedHoy.totalesGenerales.horasDecimal
   };
 }
 
 /* ==========================================================================
- * CÁLCULOS DE TIEMPO, HASH Y UTILIDADES
+ * CÁLCULOS DE TIEMPO EXACTOS, HASH Y UTILIDADES
  * ========================================================================== */
 
 function hashPin_(pin, username) {
@@ -1134,13 +1387,27 @@ function normalizeUsername_(u) {
   return String(u || '').trim().toLowerCase();
 }
 
-function calculateDuration_(ingresoTS, egresoTS) {
-  const diffMs = Math.max(0, egresoTS - ingresoTS);
-  const totalMinutes = Math.max(1, Math.round(diffMs / 60000));
-  const hours = Math.floor(totalMinutes / 60);
-  const minutes = totalMinutes % 60;
-  const duracionHHMM = pad2_(hours) + ':' + pad2_(minutes);
-  const horasDecimal = Math.round((diffMs / 3600000) * 100) / 100;
+/**
+ * Calcula la duración exacta en minutos entre la hora de ingreso (HH:MM) y egreso (HH:MM).
+ */
+function calculateDurationExact_(ingresoHM, egresoHM, ingresoTS, egresoTS) {
+  const inMin = parseHMToMinutes_(ingresoHM);
+  const outMin = parseHMToMinutes_(egresoHM);
+  let totalMinutes = 0;
+
+  if (inMin !== null && outMin !== null) {
+    if (outMin >= inMin) {
+      totalMinutes = outMin - inMin;
+    } else {
+      totalMinutes = (outMin + 1440) - inMin;
+    }
+  } else {
+    const diffMs = Math.max(0, (egresoTS || 0) - (ingresoTS || 0));
+    totalMinutes = Math.round(diffMs / 60000);
+  }
+
+  const duracionHHMM = minutesToHHMM_(totalMinutes);
+  const horasDecimal = Math.round((totalMinutes / 60) * 100) / 100;
   return {
     totalMinutes: totalMinutes,
     duracionHHMM: duracionHHMM,
@@ -1148,31 +1415,34 @@ function calculateDuration_(ingresoTS, egresoTS) {
   };
 }
 
-function summarizeShifts_(shifts) {
-  let totalMinutos = 0;
-  shifts.forEach(function(s) {
-    if (s.estado === 'CERRADO') {
-      totalMinutos += durationToMinutes_(s.duracion, s.horasDecimal);
-    }
-  });
-  const totalHorasDecimal = Math.round((totalMinutos / 60) * 100) / 100;
-  return {
-    totalMinutos: totalMinutos,
-    totalHorasDecimal: totalHorasDecimal,
-    totalDuracionHHMM: minutesToHHMM_(totalMinutos)
-  };
+function getExactShiftMinutes_(s) {
+  if (!s || s.estado !== 'CERRADO') return 0;
+  // 1. Si tiene Duración hh:mm válida mayor a 0, usar esos minutos exactos
+  const durStr = String(s.duracion || '').trim();
+  if (/^\d{1,4}:\d{2}$/.test(durStr)) {
+    const parts = durStr.split(':');
+    const mins = parseInt(parts[0], 10) * 60 + parseInt(parts[1], 10);
+    if (mins > 0) return mins;
+  }
+  // 2. Si tiene Ingreso y Egreso en formato HH:MM, calcular diferencia exacta
+  const inMin = parseHMToMinutes_(s.ingreso);
+  const outMin = parseHMToMinutes_(s.egreso);
+  if (inMin !== null && outMin !== null) {
+    return outMin >= inMin ? (outMin - inMin) : ((outMin + 1440) - inMin);
+  }
+  // 3. Fallback a horasDecimal
+  return Math.round((Number(s.horasDecimal) || 0) * 60);
 }
 
-function durationToMinutes_(duracionStr, horasDecFallback) {
-  if (duracionStr && /^\d{1,4}:\d{2}$/.test(String(duracionStr).trim())) {
-    const parts = String(duracionStr).trim().split(':');
-    return parseInt(parts[0], 10) * 60 + parseInt(parts[1], 10);
-  }
-  return Math.round((Number(horasDecFallback) || 0) * 60);
+function parseHMToMinutes_(hmStr) {
+  const s = String(hmStr || '').trim();
+  const m = s.match(/^(\d{1,2}):(\d{2})$/);
+  if (!m) return null;
+  return parseInt(m[1], 10) * 60 + parseInt(m[2], 10);
 }
 
 function minutesToHHMM_(totalMinutes) {
-  const m = Math.max(0, Math.round(totalMinutes));
+  const m = Math.max(0, Math.round(Number(totalMinutes) || 0));
   const h = Math.floor(m / 60);
   const mins = m % 60;
   return pad2_(h) + ':' + pad2_(mins);

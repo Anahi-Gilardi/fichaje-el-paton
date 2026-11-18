@@ -1444,12 +1444,21 @@
           <div class="card-header">
             <div>
               <div class="card-title">📋 Mis fichajes de hoy</div>
-              <div class="card-subtitle" id="todaySubtitle">Movimientos registrados en la jornada actual</div>
+              <div class="card-subtitle" id="todaySubtitle">Cálculo diario de total trabajado, horas normales y extras (en formato HH:MM)</div>
             </div>
-            <div class="stat-card" style="padding: 10px 16px;">
-              <span class="stat-label" style="margin-right: 8px;">Total de hoy:</span>
-              <span id="todayTotalHHMM" class="mono" style="font-size: 16px; font-weight: 800; color: var(--dark-espresso);">00:00 hs</span>
-              <span id="todayTotalDec" class="mono" style="font-size: 13px; color: var(--text-muted); margin-left: 6px;">(0,00 h)</span>
+            <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+              <div class="stat-card" style="padding: 9px 14px;">
+                <span class="stat-label" style="margin-right: 6px;">Total trabajado:</span>
+                <span id="todayTotalHHMM" class="mono" style="font-size: 15.5px; font-weight: 800; color: var(--dark-espresso);">00:00</span>
+              </div>
+              <div class="stat-card" style="padding: 9px 14px;">
+                <span class="stat-label" style="margin-right: 6px;">Normales:</span>
+                <span id="todayNormalesHHMM" class="mono" style="font-size: 15.5px; font-weight: 800; color: var(--green-main);">00:00</span>
+              </div>
+              <div class="stat-card" style="padding: 9px 14px;">
+                <span class="stat-label" style="margin-right: 6px;">Extras:</span>
+                <span id="todayExtrasHHMM" class="mono" style="font-size: 15.5px; font-weight: 800; color: #b45309;">00:00</span>
+              </div>
             </div>
           </div>
 
@@ -1460,14 +1469,15 @@
                   <th>Fecha</th>
                   <th>Ingreso</th>
                   <th>Egreso</th>
-                  <th>Duración</th>
-                  <th>Horas (decimal)</th>
+                  <th>Total trabajado</th>
+                  <th>Horas normales</th>
+                  <th>Horas extra</th>
                   <th>Estado</th>
                 </tr>
               </thead>
               <tbody id="todayTableBody">
                 <tr>
-                  <td colspan="6" class="empty-state">Cargando fichajes de hoy...</td>
+                  <td colspan="7" class="empty-state">Cargando fichajes de hoy...</td>
                 </tr>
               </tbody>
             </table>
@@ -1503,19 +1513,19 @@
 
           <div class="grid-3">
             <div class="stat-card">
-              <div class="stat-label">Total Horas (HH:MM)</div>
+              <div class="stat-label">Total Trabajado (HH:MM)</div>
               <div id="misHorasTotalHHMM" class="stat-value">00:00</div>
-              <div class="stat-note">Duración acumulada en turnos cerrados</div>
+              <div class="stat-note">Suma exacta de turnos cerrados</div>
             </div>
             <div class="stat-card">
-              <div class="stat-label">Total en Decimal</div>
-              <div id="misHorasTotalDec" class="stat-value">0,00 h</div>
-              <div class="stat-note">Para liquidación de horas</div>
+              <div class="stat-label">Horas Normales (HH:MM)</div>
+              <div id="misHorasTotalDec" class="stat-value">00:00</div>
+              <div class="stat-note">Dentro de la jornada diaria</div>
             </div>
             <div class="stat-card">
-              <div class="stat-label">Turnos Registrados</div>
-              <div id="misHorasCount" class="stat-value">0</div>
-              <div class="stat-note">Fichajes dentro del rango</div>
+              <div class="stat-label">Horas Extra (HH:MM)</div>
+              <div id="misHorasCount" class="stat-value">00:00</div>
+              <div class="stat-note">Excedente diario sin compensar</div>
             </div>
           </div>
 
@@ -1526,14 +1536,15 @@
                   <th>Fecha</th>
                   <th>Ingreso</th>
                   <th>Egreso</th>
-                  <th>Duración (hh:mm)</th>
-                  <th>Horas decimal</th>
+                  <th>Total trabajado</th>
+                  <th>Horas normales</th>
+                  <th>Horas extra</th>
                   <th>Estado</th>
                 </tr>
               </thead>
               <tbody id="misHorasTableBody">
                 <tr>
-                  <td colspan="6" class="empty-state">Seleccioná un rango de fechas para ver tus horas.</td>
+                  <td colspan="7" class="empty-state">Seleccioná un rango de fechas para ver tus horas.</td>
                 </tr>
               </tbody>
             </table>
@@ -1542,7 +1553,7 @@
       </section>
 
       <!-- ====================================================================
-           VISTA 3: EMPLEADOS (SOLO DUEÑO)
+           VISTA 3: EMPLEADOS Y LIQUIDACIÓN MENSUAL (SOLO DUEÑO)
            ==================================================================== -->
       <section id="view-empleados" class="view-section">
         <div class="grid-2">
@@ -1551,7 +1562,7 @@
             <div class="card-header">
               <div>
                 <div class="card-title">🟢 En turno ahora mismo</div>
-                <div class="card-subtitle">Personal que marcó entrada y todavía no marcó salida</div>
+                <div class="card-subtitle">Personal con turno abierto (pendiente de cierre)</div>
               </div>
               <button type="button" id="btnRefreshEmpleados" class="btn-secondary">
                 🔄 Actualizar
@@ -1567,7 +1578,7 @@
             <div class="card-header">
               <div>
                 <div class="card-title">➕ Nuevo Empleado</div>
-                <div class="card-subtitle">Creá una cuenta para que pueda fichar con su usuario y PIN</div>
+                <div class="card-subtitle">Configurá su usuario, PIN y jornada diaria (8 h por defecto)</div>
               </div>
             </div>
 
@@ -1601,12 +1612,27 @@
                 </div>
               </div>
 
-              <div class="form-group">
-                <label class="form-label" for="empRol">Rol en el sistema</label>
-                <select id="empRol" class="form-select">
-                  <option value="empleado">Empleado (Fichar y Mi cuenta)</option>
-                  <option value="dueño">Dueño (Acceso total + Gestión de Empleados)</option>
-                </select>
+              <div class="grid-2" style="margin-bottom: 0; gap: 14px;">
+                <div class="form-group">
+                  <label class="form-label" for="empRol">Rol en el sistema</label>
+                  <select id="empRol" class="form-select">
+                    <option value="empleado">Empleado (Fichar y Mi cuenta)</option>
+                    <option value="dueño">Dueño (Acceso total)</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label class="form-label" for="empJornada">Jornada diaria (horas)</label>
+                  <input
+                    type="number"
+                    id="empJornada"
+                    class="form-input mono"
+                    value="8"
+                    min="1"
+                    max="24"
+                    step="0.5"
+                    required
+                  />
+                </div>
               </div>
 
               <button type="submit" id="btnCrearEmpleadoSubmit" class="btn-primary btn-block">
@@ -1616,31 +1642,13 @@
           </div>
         </div>
 
-        <!-- Nómina completa de empleados + Descarga de PDF Mensual -->
+        <!-- Nómina completa de empleados -->
         <div class="card">
           <div class="card-header">
             <div>
               <div class="card-title">👥 Nómina de Empleados</div>
-              <div class="card-subtitle">Habilitá o deshabilitá accesos, cambiá el PIN, eliminá usuarios o descargá el PDF mensual de horas trabajadas</div>
+              <div class="card-subtitle">Configurá la jornada diaria de cada empleado (8 h por defecto), cambiá PIN, habilitá/deshabilitá o eliminá usuarios</div>
             </div>
-          </div>
-
-          <div class="filter-bar" style="justify-content: space-between; align-items: flex-end; margin-bottom: 18px;">
-            <div style="display: flex; gap: 14px; flex-wrap: wrap; align-items: flex-end;">
-              <div class="filter-item">
-                <label for="pdfMesInput">📅 Mes a descargar</label>
-                <input type="month" id="pdfMesInput" class="form-input mono" required />
-              </div>
-              <div class="filter-item" style="min-width: 240px;">
-                <label for="pdfEmpleadoSelect">👤 Empleado</label>
-                <select id="pdfEmpleadoSelect" class="form-select">
-                  <option value="todos">Todos los empleados (Resumen + Detalle)</option>
-                </select>
-              </div>
-            </div>
-            <button type="button" id="btnDescargarPDFMes" class="btn-primary">
-              📄 Descargar PDF de Horas por Mes
-            </button>
           </div>
 
           <div class="table-wrap">
@@ -1650,6 +1658,7 @@
                   <th>Nombre</th>
                   <th>Usuario</th>
                   <th>Rol</th>
+                  <th>Jornada Diaria</th>
                   <th>Estado Cuenta</th>
                   <th>Turno Actual</th>
                   <th>Acciones</th>
@@ -1657,7 +1666,111 @@
               </thead>
               <tbody id="empleadosTableBody">
                 <tr>
-                  <td colspan="6" class="empty-state">Cargando empleados...</td>
+                  <td colspan="7" class="empty-state">Cargando empleados...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Resumen Mensual de Horas (Normales + Extras sin compensar) y Descarga de PDF -->
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <div class="card-title">📊 Resumen Mensual de Horas y Liquidación (PDF)</div>
+              <div class="card-subtitle">
+                Cálculo exacto por empleado y por día en formato HH:MM. Las horas extra de cada día se suman sin compensarse con jornadas más cortas. Los turnos abiertos quedan como pendientes.
+              </div>
+            </div>
+          </div>
+
+          <div class="filter-bar" style="justify-content: space-between; align-items: flex-end; margin-bottom: 18px;">
+            <div style="display: flex; gap: 14px; flex-wrap: wrap; align-items: flex-end;">
+              <div class="filter-item">
+                <label for="pdfMesInput">📅 Mes a liquidar</label>
+                <input type="month" id="pdfMesInput" class="form-input mono" required />
+              </div>
+              <div class="filter-item" style="min-width: 240px;">
+                <label for="pdfEmpleadoSelect">👤 Empleado</label>
+                <select id="pdfEmpleadoSelect" class="form-select">
+                  <option value="todos">Todos los empleados (Resumen + Detalle)</option>
+                </select>
+              </div>
+              <button type="button" id="btnVerResumenMes" class="btn-secondary" style="padding: 12px 16px;">
+                🔍 Calcular mes
+              </button>
+            </div>
+            <button type="button" id="btnDescargarPDFMes" class="btn-primary">
+              📄 Descargar PDF Mensual
+            </button>
+          </div>
+
+          <!-- KPIs del Mes en HH:MM -->
+          <div class="grid-3">
+            <div class="stat-card">
+              <div class="stat-label">Total Trabajado (HH:MM)</div>
+              <div id="mesTotalTrabajadoHHMM" class="stat-value">00:00</div>
+              <div class="stat-note">Suma exacta de turnos cerrados del mes</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">Horas Normales (HH:MM)</div>
+              <div id="mesTotalNormalesHHMM" class="stat-value" style="color: var(--green-main);">00:00</div>
+              <div class="stat-note">Hasta completar la jornada diaria de cada día</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">Horas Extra a Liquidar (HH:MM)</div>
+              <div id="mesTotalExtrasHHMM" class="stat-value" style="color: #b45309;">00:00</div>
+              <div class="stat-note">Excedente diario acumulado sin compensar</div>
+            </div>
+          </div>
+
+          <!-- Tabla 1: Resumen Mensual por Empleado -->
+          <h3 style="font-size: 15px; font-weight: 800; color: var(--dark-espresso); margin: 18px 0 10px;">
+            📌 1. Resumen mensual por empleado (Formato HH:MM)
+          </h3>
+          <div class="table-wrap" style="margin-bottom: 22px;">
+            <table>
+              <thead>
+                <tr>
+                  <th>Empleado</th>
+                  <th>Usuario</th>
+                  <th>Jornada Diaria</th>
+                  <th>Turnos Cerrados</th>
+                  <th>Pendientes</th>
+                  <th>Total Trabajado</th>
+                  <th>Horas Normales</th>
+                  <th>Horas Extra</th>
+                </tr>
+              </thead>
+              <tbody id="mesResumenEmpleadoBody">
+                <tr>
+                  <td colspan="8" class="empty-state">Cargando resumen mensual...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Tabla 2: Detalle por Empleado y por Día -->
+          <h3 style="font-size: 15px; font-weight: 800; color: var(--dark-espresso); margin: 16px 0 10px;">
+            📑 2. Detalle por día y turno (Fecha, Ingreso, Egreso, Total trabajado, Normales y Extras)
+          </h3>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Fecha</th>
+                  <th>Empleado</th>
+                  <th>Ingreso</th>
+                  <th>Egreso</th>
+                  <th>Total trabajado</th>
+                  <th>Horas normales</th>
+                  <th>Horas extra</th>
+                  <th>Estado</th>
+                </tr>
+              </thead>
+              <tbody id="mesDetalleDiarioBody">
+                <tr>
+                  <td colspan="8" class="empty-state">Cargando detalle del mes...</td>
                 </tr>
               </tbody>
             </table>
@@ -1955,6 +2068,38 @@
     </div>
   </div>
 
+  <!-- ========================================================================
+       MODAL: CONFIGURAR JORNADA DIARIA DE EMPLEADO (SOLO DUEÑO)
+       ======================================================================== -->
+  <div id="modalJornadaEmpleado" class="modal-backdrop">
+    <div class="modal-card">
+      <div class="modal-title">⏱️ Configurar jornada diaria</div>
+      <p id="jornadaEmpleadoDesc" class="modal-desc">
+        Definí la cantidad de horas de la jornada diaria normal de este empleado (por defecto 8 h). Todo lo que supere esta jornada en un mismo día se registrará como hora extra.
+      </p>
+      <form id="jornadaEmpleadoForm">
+        <input type="hidden" id="jornadaEmpleadoUsuario" />
+        <div class="form-group">
+          <label class="form-label" for="jornadaEmpleadoInput">Horas de jornada diaria (ej: 8)</label>
+          <input
+            type="number"
+            id="jornadaEmpleadoInput"
+            class="form-input mono"
+            min="1"
+            max="24"
+            step="0.25"
+            value="8"
+            required
+          />
+        </div>
+        <div class="modal-actions">
+          <button type="button" id="btnCancelJornadaEmpleado" class="btn-secondary">Cancelar</button>
+          <button type="submit" class="btn-primary">Guardar jornada</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <!-- Contenedor de notificaciones Toast -->
   <div id="toastContainer" class="toast-container"></div>
 
@@ -1970,12 +2115,14 @@
     const API_URL = "https://script.google.com/macros/s/AKfycbwdNb2lCU3o1AFb85ZAlXdGtEAtSyMD4u7HN66GZmuKQdg_0v_dWmOvm1KYoK9HycaGqg/exec";
 
     const TZ = "America/Argentina/Cordoba";
+    const DEFAULT_JORNADA_HORAS = 8; // 8 horas diarias por defecto (480 minutos)
     const STORAGE_KEY_API_URL = "el_patron_fichaje_api_url";
     const STORAGE_KEY_SESSION = "el_patron_fichaje_session_token";
     const STORAGE_KEY_USER = "el_patron_fichaje_session_user";
     const STORAGE_KEY_LOCKOUT = "el_patron_fichaje_login_lockout";
     const STORAGE_KEY_LOCAL_DB = "el_patron_fichaje_local_db_v1";
     const STORAGE_KEY_DELETED_USERS = "el_patron_fichaje_deleted_users_v1";
+    const STORAGE_KEY_JORNADAS = "el_patron_fichaje_jornadas_v1";
     const LOCAL_SALT = "EL_PATRON_FICHAJE_SALT_2026_CBA_AR_#94653f";
 
     // Estado en memoria del cliente (con caché en vivo para respuesta instantánea)
@@ -2597,42 +2744,319 @@
       return { ok: false, error: "Acción desconocida: " + action, code: "UNKNOWN_ACTION" };
     }
 
-    function calcDurationLocal(ingresoTS, egresoTS) {
-      const diffMs = Math.max(0, egresoTS - ingresoTS);
-      const totalMinutes = Math.max(1, Math.round(diffMs / 60000));
-      const h = Math.floor(totalMinutes / 60);
-      const m = totalMinutes % 60;
+    /* ========================================================================
+       MOTOR DE CÁLCULO EXACTO POR EMPLEADO Y POR DÍA (NORMALES Y EXTRAS HH:MM)
+       ======================================================================== */
+    function getLocalJornadasMap() {
+      try {
+        return JSON.parse(localStorage.getItem(STORAGE_KEY_JORNADAS) || "{}");
+      } catch (e) {
+        return {};
+      }
+    }
+
+    function setLocalJornadaForUser(usuario, horas) {
+      const u = String(usuario || "").trim().toLowerCase();
+      if (!u) return;
+      const map = getLocalJornadasMap();
+      map[u] = Number(horas) || DEFAULT_JORNADA_HORAS;
+      localStorage.setItem(STORAGE_KEY_JORNADAS, JSON.stringify(map));
+    }
+
+    function getJornadaHorasUsuario(usuario, serverJornada) {
+      const u = String(usuario || "").trim().toLowerCase();
+      const map = getLocalJornadasMap();
+      if (map[u] && Number(map[u]) > 0) return Number(map[u]);
+      if (serverJornada && Number(serverJornada) > 0) return Number(serverJornada);
+      if (state.empleadosCache) {
+        const found = state.empleadosCache.find(e => e.usuario === u);
+        if (found && found.jornadaHoras && Number(found.jornadaHoras) > 0) {
+          return Number(found.jornadaHoras);
+        }
+      }
+      return DEFAULT_JORNADA_HORAS;
+    }
+
+    function parseHMToMinutes(hmStr) {
+      const s = String(hmStr || "").trim();
+      const m = s.match(/^(\d{1,2}):(\d{2})$/);
+      if (!m) return null;
+      return parseInt(m[1], 10) * 60 + parseInt(m[2], 10);
+    }
+
+    function minutesToHHMMLocal(mins) {
+      const m = Math.max(0, Math.round(Number(mins) || 0));
+      return `${pad2(Math.floor(m / 60))}:${pad2(m % 60)}`;
+    }
+
+    function calcDurationLocal(ingresoTS, egresoTS, ingresoHM, egresoHM) {
+      const inMin = parseHMToMinutes(ingresoHM);
+      const outMin = parseHMToMinutes(egresoHM);
+      let totalMinutes = 0;
+      if (inMin !== null && outMin !== null) {
+        totalMinutes = outMin >= inMin ? (outMin - inMin) : ((outMin + 1440) - inMin);
+      } else {
+        const diffMs = Math.max(0, (egresoTS || 0) - (ingresoTS || 0));
+        totalMinutes = Math.round(diffMs / 60000);
+      }
       return {
         totalMinutes,
-        duracionHHMM: `${pad2(h)}:${pad2(m)}`,
-        horasDecimal: Math.round((diffMs / 3600000) * 100) / 100
+        duracionHHMM: minutesToHHMMLocal(totalMinutes),
+        horasDecimal: Math.round((totalMinutes / 60) * 100) / 100
       };
     }
 
-    function durationToMinutesLocal(durStr, decFallback) {
+    function durationToMinutesLocal(durStr, decFallback, ingresoHM, egresoHM) {
       if (durStr && /^\d{1,4}:\d{2}$/.test(String(durStr).trim())) {
         const [h, m] = String(durStr).trim().split(":").map(Number);
-        return h * 60 + m;
+        const mins = h * 60 + m;
+        if (mins > 0) return mins;
+      }
+      const inMin = parseHMToMinutes(ingresoHM);
+      const outMin = parseHMToMinutes(egresoHM);
+      if (inMin !== null && outMin !== null) {
+        return outMin >= inMin ? (outMin - inMin) : ((outMin + 1440) - inMin);
       }
       return Math.round((Number(decFallback) || 0) * 60);
     }
 
-    function minutesToHHMMLocal(mins) {
-      const m = Math.max(0, Math.round(mins));
-      return `${pad2(Math.floor(m / 60))}:${pad2(m % 60)}`;
+    function getExactShiftMinutes(s) {
+      if (!s || s.estado !== "CERRADO") return 0;
+      return durationToMinutesLocal(s.duracion, s.horasDecimal, s.ingreso, s.egreso);
+    }
+
+    /**
+     * Calcula las horas por empleado y por día:
+     * - Suma los turnos cerrados de cada día.
+     * - Registra como extra todo lo que supere la jornada diaria configurada del empleado (8 h por defecto).
+     * - Suma las extras de cada día en el mes SIN compensarlas con jornadas más cortas.
+     * - Deja los turnos abiertos como PENDIENTE.
+     */
+    function calcularHorasPorDiaYEmpleado(shifts, empleadosLista = []) {
+      const lista = Array.isArray(shifts) ? shifts : [];
+
+      // Mapa de jornadas configuradas por usuario (8 h = 480 min por defecto)
+      const jornadaMap = {};
+      if (Array.isArray(empleadosLista)) {
+        empleadosLista.forEach(u => {
+          const uKey = String(u.usuario || "").trim().toLowerCase();
+          if (uKey) {
+            jornadaMap[uKey] = getJornadaHorasUsuario(uKey, u.jornadaHoras);
+          }
+        });
+      }
+
+      // 1. Ordenar cronológicamente (ascendente) para acumular los turnos del mismo día en orden
+      const sortedAsc = lista.map(s => ({ ...s })).sort((a, b) => {
+        if (a.fecha !== b.fecha) return a.fecha < b.fecha ? -1 : 1;
+        return (a.ingresoTS || 0) - (b.ingresoTS || 0);
+      });
+
+      const dayAccumByUserDate = {};
+      const dayGroupMap = {};
+
+      sortedAsc.forEach(s => {
+        const u = String(s.usuario || (state.usuario && state.usuario.usuario) || "").trim().toLowerCase();
+        const f = String(s.fecha || "").trim();
+        const key = `${u}|${f}`;
+        const jHoras = jornadaMap[u] || getJornadaHorasUsuario(u, s.jornadaHoras);
+        const jornadaMin = Math.round(jHoras * 60);
+
+        if (dayAccumByUserDate[key] === undefined) {
+          dayAccumByUserDate[key] = 0;
+        }
+        if (!dayGroupMap[key]) {
+          dayGroupMap[key] = {
+            usuario: u,
+            nombre: s.nombre || u,
+            fecha: f,
+            jornadaHoras: jHoras,
+            jornadaHHMM: minutesToHHMMLocal(jornadaMin),
+            ingresos: [],
+            egresos: [],
+            turnosCerrados: 0,
+            turnosPendientes: 0,
+            minutosTrabajados: 0,
+            minutosNormales: 0,
+            minutosExtras: 0
+          };
+        }
+
+        const grp = dayGroupMap[key];
+        if (s.ingreso) grp.ingresos.push(s.ingreso);
+
+        if (s.estado !== "CERRADO") {
+          s.esPendiente = true;
+          s.estadoDisplay = "PENDIENTE";
+          s.minutosTrabajados = 0;
+          s.minutosNormales = 0;
+          s.minutosExtras = 0;
+          s.totalHHMM = "Pendiente";
+          s.normalesHHMM = "Pendiente";
+          s.extrasHHMM = "Pendiente";
+          grp.turnosPendientes += 1;
+          grp.egresos.push("Pendiente");
+        } else {
+          const durMin = getExactShiftMinutes(s);
+          const prevAcum = dayAccumByUserDate[key];
+          const nuevoAcum = prevAcum + durMin;
+          dayAccumByUserDate[key] = nuevoAcum;
+
+          const normMin = Math.max(0, Math.min(nuevoAcum, jornadaMin) - Math.min(prevAcum, jornadaMin));
+          const extMin = Math.max(0, durMin - normMin);
+
+          s.esPendiente = false;
+          s.estadoDisplay = "CERRADO";
+          s.minutosTrabajados = durMin;
+          s.minutosNormales = normMin;
+          s.minutosExtras = extMin;
+          s.duracion = minutesToHHMMLocal(durMin);
+          s.totalHHMM = minutesToHHMMLocal(durMin);
+          s.normalesHHMM = minutesToHHMMLocal(normMin);
+          s.extrasHHMM = minutesToHHMMLocal(extMin);
+          s.horasDecimal = Math.round((durMin / 60) * 100) / 100;
+
+          grp.turnosCerrados += 1;
+          if (s.egreso) grp.egresos.push(s.egreso);
+          grp.minutosTrabajados = nuevoAcum;
+          grp.minutosNormales = Math.min(nuevoAcum, jornadaMin);
+          grp.minutosExtras = Math.max(0, nuevoAcum - jornadaMin);
+        }
+      });
+
+      // 2. Resumen agrupado por empleado y por día
+      const resumenDiario = Object.values(dayGroupMap).map(d => ({
+        usuario: d.usuario,
+        nombre: d.nombre,
+        fecha: d.fecha,
+        jornadaHoras: d.jornadaHoras,
+        jornadaHHMM: d.jornadaHHMM,
+        ingreso: d.ingresos.length > 0 ? d.ingresos.join(" / ") : "—",
+        egreso: d.egresos.length > 0 ? d.egresos.join(" / ") : "—",
+        turnosCerrados: d.turnosCerrados,
+        turnosPendientes: d.turnosPendientes,
+        minutosTrabajados: d.minutosTrabajados,
+        minutosNormales: d.minutosNormales,
+        minutosExtras: d.minutosExtras,
+        totalHHMM: minutesToHHMMLocal(d.minutosTrabajados),
+        normalesHHMM: minutesToHHMMLocal(d.minutosNormales),
+        extrasHHMM: minutesToHHMMLocal(d.minutosExtras),
+        estado: d.turnosPendientes > 0 ? "PENDIENTE" : "CERRADO"
+      })).sort((a, b) => {
+        if (a.fecha !== b.fecha) return a.fecha > b.fecha ? -1 : 1;
+        return String(a.nombre).localeCompare(String(b.nombre));
+      });
+
+      // 3. Resumen mensual por empleado (sumando las extras de cada día SIN compensarlas con días más cortos)
+      const empMap = {};
+      if (Array.isArray(empleadosLista)) {
+        empleadosLista.forEach(u => {
+          const uKey = String(u.usuario || "").trim().toLowerCase();
+          if (!uKey) return;
+          const jH = getJornadaHorasUsuario(uKey, u.jornadaHoras);
+          empMap[uKey] = {
+            usuario: uKey,
+            nombre: u.nombre || uKey,
+            jornadaHoras: jH,
+            jornadaHHMM: minutesToHHMMLocal(Math.round(jH * 60)),
+            diasTrabajados: 0,
+            turnosCerrados: 0,
+            turnosAbiertos: 0,
+            minutosTrabajados: 0,
+            minutosNormales: 0,
+            minutosExtras: 0
+          };
+        });
+      }
+
+      Object.values(dayGroupMap).forEach(d => {
+        if (!empMap[d.usuario]) {
+          empMap[d.usuario] = {
+            usuario: d.usuario,
+            nombre: d.nombre,
+            jornadaHoras: d.jornadaHoras,
+            jornadaHHMM: d.jornadaHHMM,
+            diasTrabajados: 0,
+            turnosCerrados: 0,
+            turnosAbiertos: 0,
+            minutosTrabajados: 0,
+            minutosNormales: 0,
+            minutosExtras: 0
+          };
+        }
+        const emp = empMap[d.usuario];
+        if (d.turnosCerrados > 0) emp.diasTrabajados += 1;
+        emp.turnosCerrados += d.turnosCerrados;
+        emp.turnosAbiertos += d.turnosPendientes;
+        emp.minutosTrabajados += d.minutosTrabajados;
+        emp.minutosNormales += d.minutosNormales;
+        emp.minutosExtras += d.minutosExtras;
+      });
+
+      let globalTrabajadosMin = 0;
+      let globalNormalesMin = 0;
+      let globalExtrasMin = 0;
+      let globalCerrados = 0;
+      let globalPendientes = 0;
+
+      const resumenPorEmpleado = Object.values(empMap).map(e => {
+        globalTrabajadosMin += e.minutosTrabajados;
+        globalNormalesMin += e.minutosNormales;
+        globalExtrasMin += e.minutosExtras;
+        globalCerrados += e.turnosCerrados;
+        globalPendientes += e.turnosAbiertos;
+
+        return {
+          usuario: e.usuario,
+          nombre: e.nombre,
+          jornadaHoras: e.jornadaHoras,
+          jornadaHHMM: e.jornadaHHMM,
+          diasTrabajados: e.diasTrabajados,
+          turnosCerrados: e.turnosCerrados,
+          turnosAbiertos: e.turnosAbiertos,
+          totalTurnos: e.turnosCerrados + e.turnosAbiertos,
+          minutosTrabajados: e.minutosTrabajados,
+          minutosNormales: e.minutosNormales,
+          minutosExtras: e.minutosExtras,
+          duracionHHMM: minutesToHHMMLocal(e.minutosTrabajados),
+          totalTrabajadoHHMM: minutesToHHMMLocal(e.minutosTrabajados),
+          horasNormalesHHMM: minutesToHHMMLocal(e.minutosNormales),
+          horasExtrasHHMM: minutesToHHMMLocal(e.minutosExtras),
+          horasDecimal: Math.round((e.minutosTrabajados / 60) * 100) / 100
+        };
+      }).sort((a, b) => b.minutosTrabajados - a.minutosTrabajados);
+
+      const fichajesEnriquecidos = sortedAsc.slice().sort((a, b) => {
+        if (a.fecha !== b.fecha) return a.fecha > b.fecha ? -1 : 1;
+        return (b.ingresoTS || 0) - (a.ingresoTS || 0);
+      });
+
+      return {
+        fichajesEnriquecidos,
+        resumenDiario,
+        resumenPorEmpleado,
+        totalesGenerales: {
+          minutosTrabajados: globalTrabajadosMin,
+          minutosNormales: globalNormalesMin,
+          minutosExtras: globalExtrasMin,
+          totalTrabajadoHHMM: minutesToHHMMLocal(globalTrabajadosMin),
+          horasNormalesHHMM: minutesToHHMMLocal(globalNormalesMin),
+          horasExtrasHHMM: minutesToHHMMLocal(globalExtrasMin),
+          horasDecimal: Math.round((globalTrabajadosMin / 60) * 100) / 100,
+          turnosCerrados: globalCerrados,
+          turnosPendientes: globalPendientes
+        }
+      };
     }
 
     function summarizeShiftsLocal(shifts) {
-      let totalMinutos = 0;
-      shifts.forEach(s => {
-        if (s.estado === "CERRADO") {
-          totalMinutos += durationToMinutesLocal(s.duracion, s.horasDecimal);
-        }
-      });
+      const calc = calcularHorasPorDiaYEmpleado(shifts);
       return {
-        totalMinutos,
-        totalHorasDecimal: Math.round((totalMinutos / 60) * 100) / 100,
-        totalDuracionHHMM: minutesToHHMMLocal(totalMinutos)
+        totalMinutos: calc.totalesGenerales.minutosTrabajados,
+        totalHorasDecimal: calc.totalesGenerales.horasDecimal,
+        totalDuracionHHMM: calc.totalesGenerales.totalTrabajadoHHMM,
+        totalNormalesHHMM: calc.totalesGenerales.horasNormalesHHMM,
+        totalExtrasHHMM: calc.totalesGenerales.horasExtrasHHMM
       };
     }
 
@@ -2758,12 +3182,10 @@
       document.getElementById("heroTerminalChip").textContent =
         `Terminal de Fichaje · ${user.nombre} (${isOwnerRole(user) ? "Dueño" : "Empleado"})`;
 
-      // Mostrar u ocultar pestañas exclusivas de dueño
       document.querySelectorAll(".owner-only").forEach(btn => {
         btn.style.display = isOwnerRole(user) ? "flex" : "none";
       });
 
-      // Inicializar filtros de fechas con el mes actual
       const range = getCurrentMonthRangeCordoba();
       const partsNow = getCordobaParts(new Date());
       document.getElementById("misHorasDesde").value = range.desde;
@@ -2801,6 +3223,7 @@
         loadMisHoras();
       } else if (viewName === "empleados" && isOwnerRole(state.usuario)) {
         loadEmpleados();
+        cargarResumenMensualEnPantalla();
       } else if (viewName === "reporte" && isOwnerRole(state.usuario)) {
         loadReporte();
       } else if (viewName === "miCuenta") {
@@ -2809,12 +3232,18 @@
     }
 
     /* ========================================================================
-       VISTA 1: FICHAR (ESTADO, INGRESO, EGRESO Y TABLA DE HOY)
+       VISTA 1: FICHAR (ESTADO, INGRESO, EGRESO Y CÁLCULO DIARIO DE HOY)
        ======================================================================== */
     function renderEstadoFichaje(data) {
       state.enTurno = Boolean(data.enTurno);
       state.turnoAbierto = data.turnoAbierto || null;
-      state.fichajesHoy = Array.isArray(data.fichajesHoy) ? data.fichajesHoy : [];
+      const rawHoy = Array.isArray(data.fichajesHoy) ? data.fichajesHoy : [];
+
+      const calcHoy = calcularHorasPorDiaYEmpleado(
+        rawHoy,
+        state.usuario ? [state.usuario] : []
+      );
+      state.fichajesHoy = calcHoy.fichajesEnriquecidos;
 
       const badge = document.getElementById("shiftStatusBadge");
       const statusText = document.getElementById("shiftStatusText");
@@ -2826,7 +3255,6 @@
         badge.className = "status-badge in-shift";
         statusText.textContent = "En turno";
         sinceNote.textContent = `Ingreso marcado a las ${state.turnoAbierto.ingreso} hs (${formatDisplayDateAR(state.turnoAbierto.fecha)})`;
-        // Regla clave: si ya marcó ingreso, INGRESO queda deshabilitado hasta que marque EGRESO
         btnIngreso.disabled = true;
         btnEgreso.disabled = false;
       } else {
@@ -2837,25 +3265,31 @@
         btnEgreso.disabled = true;
       }
 
-      document.getElementById("todayTotalHHMM").textContent = `${data.totalHoyHHMM || "00:00"} hs`;
-      document.getElementById("todayTotalDec").textContent = `(${formatDecimalAR(data.totalHoyDecimal)} h)`;
+      document.getElementById("todayTotalHHMM").textContent = `${calcHoy.totalesGenerales.totalTrabajadoHHMM} hs`;
+      const normEl = document.getElementById("todayNormalesHHMM");
+      if (normEl) normEl.textContent = `${calcHoy.totalesGenerales.horasNormalesHHMM} hs`;
+      const extEl = document.getElementById("todayExtrasHHMM");
+      if (extEl) extEl.textContent = `${calcHoy.totalesGenerales.horasExtrasHHMM} hs`;
 
       const tbody = document.getElementById("todayTableBody");
       if (state.fichajesHoy.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="6" class="empty-state">Todavía no tenés fichajes registrados en el día de hoy.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="7" class="empty-state">Todavía no tenés fichajes registrados en el día de hoy.</td></tr>`;
       } else {
         tbody.innerHTML = state.fichajesHoy.map(f => {
-          const isAbierto = f.estado === "ABIERTO";
+          const isPendiente = f.estado !== "CERRADO";
           return `
             <tr>
               <td class="mono">${escapeHtml(formatDisplayDateAR(f.fecha))}</td>
               <td class="mono"><strong>${escapeHtml(f.ingreso || "—")}</strong></td>
-              <td class="mono">${escapeHtml(f.egreso || "—")}</td>
-              <td class="mono">${isAbierto ? "En curso..." : escapeHtml(f.duracion) + " hs"}</td>
-              <td class="mono">${isAbierto ? "—" : formatDecimalAR(f.horasDecimal) + " h"}</td>
+              <td class="mono">${escapeHtml(isPendiente ? "Pendiente" : (f.egreso || "—"))}</td>
+              <td class="mono"><strong>${isPendiente ? "Pendiente" : escapeHtml(f.totalHHMM)}</strong></td>
+              <td class="mono" style="color: var(--green-main); font-weight: 700;">${isPendiente ? "Pendiente" : escapeHtml(f.normalesHHMM)}</td>
+              <td class="mono" style="color: ${!isPendiente && f.minutosExtras > 0 ? '#b45309' : 'var(--text-muted)'}; font-weight: 700;">
+                ${isPendiente ? "Pendiente" : escapeHtml(f.extrasHHMM)}
+              </td>
               <td>
-                <span class="pill ${isAbierto ? "pill-open" : "pill-closed"}">
-                  ${isAbierto ? "● ABIERTO" : "✓ CERRADO"}
+                <span class="pill ${isPendiente ? "pill-open" : "pill-closed"}">
+                  ${isPendiente ? "⏳ PENDIENTE" : "✓ CERRADO"}
                 </span>
               </td>
             </tr>
@@ -2903,7 +3337,6 @@
       state.actionLock = true;
       setAlert("ficharFeedback", "");
 
-      // Actualización optimista instantánea (0ms)
       const prevState = {
         enTurno: state.enTurno,
         turnoAbierto: state.turnoAbierto,
@@ -2925,13 +3358,10 @@
         ingresoTS: now.getTime()
       };
 
-      const currentSummary = summarizeShiftsLocal(state.fichajesHoy);
       renderEstadoFichaje({
         enTurno: true,
         turnoAbierto: optimisticShift,
-        fichajesHoy: [optimisticShift, ...state.fichajesHoy],
-        totalHoyHHMM: currentSummary.totalDuracionHHMM,
-        totalHoyDecimal: currentSummary.totalHorasDecimal
+        fichajesHoy: [optimisticShift, ...state.fichajesHoy]
       });
       setAlert("ficharFeedback", `Ingreso registrado a las ${parts.hm} hs.`, "success");
       showToast(`Ingreso registrado a las ${parts.hm} hs.`, "success");
@@ -2941,13 +3371,10 @@
         if (res.ok) {
           renderEstadoFichaje(res);
         } else {
-          // Revertir si hubo error
           renderEstadoFichaje({
             enTurno: prevState.enTurno,
             turnoAbierto: prevState.turnoAbierto,
-            fichajesHoy: prevState.fichajesHoy,
-            totalHoyHHMM: currentSummary.totalDuracionHHMM,
-            totalHoyDecimal: currentSummary.totalHorasDecimal
+            fichajesHoy: prevState.fichajesHoy
           });
           setAlert("ficharFeedback", res.error || "No se pudo registrar el ingreso.", "error");
           showToast(res.error || "Error al marcar ingreso.", "error");
@@ -2969,14 +3396,14 @@
         fichajesHoy: state.fichajesHoy.map(f => ({ ...f }))
       };
 
-      // Actualización optimista instantánea (0ms)
       const nowMs = Date.now();
       const parts = getCordobaParts(new Date(nowMs));
-      const openTs = state.turnoAbierto && state.turnoAbierto.ingresoTS ? state.turnoAbierto.ingresoTS : nowMs - 60000;
-      const calc = calcDurationLocal(openTs, Math.max(nowMs, openTs + 1000));
+      const openTs = state.turnoAbierto && state.turnoAbierto.ingresoTS ? state.turnoAbierto.ingresoTS : nowMs;
+      const openHM = state.turnoAbierto ? state.turnoAbierto.ingreso : parts.hm;
+      const calc = calcDurationLocal(openTs, Math.max(nowMs, openTs + 1000), openHM, parts.hm);
 
       const optimisticHoy = state.fichajesHoy.map(f => {
-        if (f.estado === "ABIERTO") {
+        if (f.estado !== "CERRADO") {
           return {
             ...f,
             egreso: parts.hm,
@@ -2987,14 +3414,11 @@
         }
         return f;
       });
-      const newSummary = summarizeShiftsLocal(optimisticHoy);
 
       renderEstadoFichaje({
         enTurno: false,
         turnoAbierto: null,
-        fichajesHoy: optimisticHoy,
-        totalHoyHHMM: newSummary.totalDuracionHHMM,
-        totalHoyDecimal: newSummary.totalHorasDecimal
+        fichajesHoy: optimisticHoy
       });
       setAlert("ficharFeedback", `Egreso registrado a las ${parts.hm} hs.`, "success");
       showToast(`Egreso registrado a las ${parts.hm} hs.`, "success");
@@ -3004,13 +3428,10 @@
         if (res.ok) {
           renderEstadoFichaje(res);
         } else {
-          const prevSummary = summarizeShiftsLocal(prevState.fichajesHoy);
           renderEstadoFichaje({
             enTurno: prevState.enTurno,
             turnoAbierto: prevState.turnoAbierto,
-            fichajesHoy: prevState.fichajesHoy,
-            totalHoyHHMM: prevSummary.totalDuracionHHMM,
-            totalHoyDecimal: prevSummary.totalHorasDecimal
+            fichajesHoy: prevState.fichajesHoy
           });
           setAlert("ficharFeedback", res.error || "No se pudo registrar el egreso.", "error");
           showToast(res.error || "Error al marcar egreso.", "error");
@@ -3028,36 +3449,44 @@
       const desde = document.getElementById("misHorasDesde").value;
       const hasta = document.getElementById("misHorasHasta").value;
       const tbody = document.getElementById("misHorasTableBody");
-      tbody.innerHTML = `<tr><td colspan="6" class="empty-state">Consultando tus horas...</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="7" class="empty-state">Consultando tus horas...</td></tr>`;
 
       const res = await apiCall("misHoras", { desde, hasta });
       if (!res.ok) {
-        tbody.innerHTML = `<tr><td colspan="6" class="empty-state">${escapeHtml(res.error || "Error al cargar tus horas.")}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="7" class="empty-state">${escapeHtml(res.error || "Error al cargar tus horas.")}</td></tr>`;
         return;
       }
 
-      document.getElementById("misHorasTotalHHMM").textContent = `${res.totalDuracionHHMM || "00:00"} hs`;
-      document.getElementById("misHorasTotalDec").textContent = `${formatDecimalAR(res.totalHorasDecimal)} h`;
-      document.getElementById("misHorasCount").textContent = String(res.cantidadTurnos || 0);
+      const calc = calcularHorasPorDiaYEmpleado(
+        res.fichajes || [],
+        state.usuario ? [state.usuario] : []
+      );
 
-      const list = Array.isArray(res.fichajes) ? res.fichajes : [];
+      document.getElementById("misHorasTotalHHMM").textContent = `${calc.totalesGenerales.totalTrabajadoHHMM}`;
+      document.getElementById("misHorasTotalDec").textContent = `${calc.totalesGenerales.horasNormalesHHMM}`;
+      document.getElementById("misHorasCount").textContent = `${calc.totalesGenerales.horasExtrasHHMM}`;
+
+      const list = calc.fichajesEnriquecidos;
       if (list.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="6" class="empty-state">No hay fichajes registrados en este rango de fechas.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="7" class="empty-state">No hay fichajes registrados en este rango de fechas.</td></tr>`;
         return;
       }
 
       tbody.innerHTML = list.map(f => {
-        const isAbierto = f.estado === "ABIERTO";
+        const isPendiente = f.estado !== "CERRADO";
         return `
           <tr>
             <td class="mono">${escapeHtml(formatDisplayDateAR(f.fecha))}</td>
             <td class="mono">${escapeHtml(f.ingreso || "—")}</td>
-            <td class="mono">${escapeHtml(f.egreso || "—")}</td>
-            <td class="mono">${isAbierto ? "En curso" : escapeHtml(f.duracion) + " hs"}</td>
-            <td class="mono">${isAbierto ? "—" : formatDecimalAR(f.horasDecimal) + " h"}</td>
+            <td class="mono">${escapeHtml(isPendiente ? "Pendiente" : (f.egreso || "—"))}</td>
+            <td class="mono"><strong>${isPendiente ? "Pendiente" : escapeHtml(f.totalHHMM)}</strong></td>
+            <td class="mono" style="color: var(--green-main); font-weight: 700;">${isPendiente ? "Pendiente" : escapeHtml(f.normalesHHMM)}</td>
+            <td class="mono" style="color: ${!isPendiente && f.minutosExtras > 0 ? '#b45309' : 'var(--text-muted)'}; font-weight: 700;">
+              ${isPendiente ? "Pendiente" : escapeHtml(f.extrasHHMM)}
+            </td>
             <td>
-              <span class="pill ${isAbierto ? "pill-open" : "pill-closed"}">
-                ${isAbierto ? "● ABIERTO" : "✓ CERRADO"}
+              <span class="pill ${isPendiente ? "pill-open" : "pill-closed"}">
+                ${isPendiente ? "⏳ PENDIENTE" : "✓ CERRADO"}
               </span>
             </td>
           </tr>
@@ -3066,16 +3495,24 @@
     }
 
     /* ========================================================================
-       VISTA 3: EMPLEADOS (SOLO DUEÑO - RENDERIZADO INSTANTÁNEO + ELIMINAR)
+       VISTA 3: EMPLEADOS Y RESUMEN MENSUAL (NORMALES + EXTRAS SIN COMPENSAR)
        ======================================================================== */
     function renderEmpleadosUI(rawEmpleados, rawAdentroAhora) {
       const tbody = document.getElementById("empleadosTableBody");
       const adentroBox = document.getElementById("adentroAhoraContainer");
       const deletedSet = new Set(getLocallyDeletedUsers());
 
-      const empleados = (Array.isArray(rawEmpleados) ? rawEmpleados : []).filter(
-        e => !deletedSet.has(String(e.usuario || "").toLowerCase())
-      );
+      const empleados = (Array.isArray(rawEmpleados) ? rawEmpleados : [])
+        .filter(e => !deletedSet.has(String(e.usuario || "").toLowerCase()))
+        .map(e => {
+          const jH = getJornadaHorasUsuario(e.usuario, e.jornadaHoras);
+          return {
+            ...e,
+            jornadaHoras: jH,
+            jornadaHHMM: minutesToHHMMLocal(Math.round(jH * 60))
+          };
+        });
+
       const adentro = (Array.isArray(rawAdentroAhora) ? rawAdentroAhora : []).filter(
         a => !deletedSet.has(String(a.usuario || "").toLowerCase())
       );
@@ -3083,7 +3520,6 @@
       state.empleadosCache = empleados;
       state.adentroAhoraCache = adentro;
 
-      // Actualizar selector de empleados para la exportación a PDF
       const pdfSelect = document.getElementById("pdfEmpleadoSelect");
       if (pdfSelect) {
         const prevVal = pdfSelect.value || "todos";
@@ -3107,7 +3543,7 @@
                 🟢 ${escapeHtml(a.nombre)} <span class="mono" style="font-weight:500; color:var(--text-muted);">(@${escapeHtml(a.usuario)})</span>
               </div>
               <div class="stat-note">
-                Ingresó el ${escapeHtml(formatDisplayDateAR(a.fecha))} a las <strong>${escapeHtml(a.ingreso)} hs</strong>
+                Ingresó el ${escapeHtml(formatDisplayDateAR(a.fecha))} a las <strong>${escapeHtml(a.ingreso)} hs</strong> (Pendiente de cierre)
               </div>
             </div>
             <button
@@ -3125,7 +3561,7 @@
       }
 
       if (empleados.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="6" class="empty-state">No hay empleados registrados.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="7" class="empty-state">No hay empleados registrados.</td></tr>`;
         return;
       }
 
@@ -3137,6 +3573,10 @@
             <td><strong>${escapeHtml(e.nombre)}</strong></td>
             <td class="mono">${escapeHtml(e.usuario)}</td>
             <td><span class="pill pill-role">${esDueno ? "Dueño" : "Empleado"}</span></td>
+            <td class="mono">
+              <strong>${escapeHtml(e.jornadaHHMM)}</strong>
+              <span style="color:var(--text-muted); font-size:12px;">(${escapeHtml(e.jornadaHoras)} h)</span>
+            </td>
             <td>
               <span class="pill ${e.activo ? "pill-closed" : "pill-inactive"}">
                 ${e.activo ? "Activo" : "Deshabilitado"}
@@ -3144,12 +3584,23 @@
             </td>
             <td>
               ${e.enTurno && e.turnoAbierto
-                ? `<span class="pill pill-open">🟢 En turno (${escapeHtml(e.turnoAbierto.ingreso)} hs)</span>`
+                ? `<span class="pill pill-open">⏳ Pendiente (${escapeHtml(e.turnoAbierto.ingreso)} hs)</span>`
                 : `<span style="color:var(--text-muted); font-size:13px;">Fuera de turno</span>`
               }
             </td>
             <td>
               <div class="action-btn-group">
+                <button
+                  type="button"
+                  class="btn-xs btn-xs-outline"
+                  data-action="edit-jornada"
+                  data-usuario="${escapeHtml(e.usuario)}"
+                  data-nombre="${escapeHtml(e.nombre)}"
+                  data-jornada="${escapeHtml(e.jornadaHoras)}"
+                  title="Configurar jornada diaria"
+                >
+                  ⏱️ Jornada
+                </button>
                 <button
                   type="button"
                   class="btn-xs btn-xs-outline"
@@ -3199,7 +3650,6 @@
     }
 
     async function loadEmpleados(opts = {}) {
-      // Si ya tenemos caché en memoria, la mostramos en 0ms sin pantalla de carga
       if (state.empleadosCache && !opts.forceSpinner) {
         renderEmpleadosUI(state.empleadosCache, state.adentroAhoraCache);
       }
@@ -3215,8 +3665,139 @@
       renderEmpleadosUI(res.empleados, res.adentroAhora);
     }
 
+    /**
+     * Obtiene y calcula los datos del mes seleccionado (Total trabajado, Horas normales y Horas extra en HH:MM)
+     * tanto para mostrarlos en pantalla como para exportarlos al PDF mensual.
+     */
+    async function obtenerDatosCalculadosDelMes() {
+      const ymInput = document.getElementById("pdfMesInput");
+      const empSelect = document.getElementById("pdfEmpleadoSelect");
+
+      const ym = (ymInput && ymInput.value) ? ymInput.value : getCordobaParts(new Date()).ym;
+      const usuarioFiltro = (empSelect && empSelect.value) ? empSelect.value : "todos";
+
+      const [yearNum, monthNum] = ym.split("-").map(Number);
+      const lastDay = new Date(yearNum, monthNum, 0).getDate();
+      const desde = `${ym}-01`;
+      const hasta = `${ym}-${pad2(lastDay)}`;
+      const mesNombre = formatMonthNameES(ym);
+
+      const res = await apiCall("reporte", { desde, hasta, usuario: usuarioFiltro });
+      if (!res.ok) {
+        return { ok: false, error: res.error || "No se pudo obtener el reporte del mes." };
+      }
+
+      const deletedSet = new Set(getLocallyDeletedUsers());
+      const empleadosBase = (Array.isArray(res.empleadosLista) ? res.empleadosLista : (state.empleadosCache || []))
+        .filter(u => !deletedSet.has(String(u.usuario || "").toLowerCase()))
+        .map(u => ({
+          ...u,
+          jornadaHoras: getJornadaHorasUsuario(u.usuario, u.jornadaHoras)
+        }));
+
+      const targetEmpleados = usuarioFiltro === "todos"
+        ? empleadosBase
+        : empleadosBase.filter(e => e.usuario === usuarioFiltro);
+
+      const fichajesRaw = (Array.isArray(res.fichajes) ? res.fichajes : [])
+        .filter(f => !deletedSet.has(String(f.usuario || "").toLowerCase()));
+
+      const calc = calcularHorasPorDiaYEmpleado(fichajesRaw, targetEmpleados);
+
+      return {
+        ok: true,
+        ym,
+        desde,
+        hasta,
+        mesNombre,
+        usuarioFiltro,
+        ...calc
+      };
+    }
+
+    async function cargarResumenMensualEnPantalla() {
+      const resBody = document.getElementById("mesResumenEmpleadoBody");
+      const detBody = document.getElementById("mesDetalleDiarioBody");
+      if (!resBody || !detBody) return;
+
+      const data = await obtenerDatosCalculadosDelMes();
+      if (!data.ok) {
+        resBody.innerHTML = `<tr><td colspan="8" class="empty-state">${escapeHtml(data.error)}</td></tr>`;
+        detBody.innerHTML = `<tr><td colspan="8" class="empty-state">${escapeHtml(data.error)}</td></tr>`;
+        return;
+      }
+
+      document.getElementById("mesTotalTrabajadoHHMM").textContent = data.totalesGenerales.totalTrabajadoHHMM;
+      document.getElementById("mesTotalNormalesHHMM").textContent = data.totalesGenerales.horasNormalesHHMM;
+      document.getElementById("mesTotalExtrasHHMM").textContent = data.totalesGenerales.horasExtrasHHMM;
+
+      const filasResumen = data.resumenPorEmpleado;
+      if (filasResumen.length === 0) {
+        resBody.innerHTML = `<tr><td colspan="8" class="empty-state">No hay empleados para mostrar en este período.</td></tr>`;
+      } else {
+        const rowsHtml = filasResumen.map(r => `
+          <tr>
+            <td><strong>${escapeHtml(r.nombre)}</strong></td>
+            <td class="mono">@${escapeHtml(r.usuario)}</td>
+            <td class="mono">${escapeHtml(r.jornadaHHMM)} (${escapeHtml(r.jornadaHoras)} h)</td>
+            <td class="mono">${escapeHtml(r.turnosCerrados)}</td>
+            <td class="mono">
+              ${r.turnosAbiertos > 0
+                ? `<span class="pill pill-open">⏳ ${escapeHtml(r.turnosAbiertos)} pend.</span>`
+                : `0`
+              }
+            </td>
+            <td class="mono"><strong>${escapeHtml(r.totalTrabajadoHHMM)}</strong></td>
+            <td class="mono" style="color: var(--green-main); font-weight: 700;">${escapeHtml(r.horasNormalesHHMM)}</td>
+            <td class="mono" style="color: ${r.minutosExtras > 0 ? '#b45309' : 'var(--text-muted)'}; font-weight: 800;">
+              ${escapeHtml(r.horasExtrasHHMM)}
+            </td>
+          </tr>
+        `).join("");
+
+        const footHtml = `
+          <tr style="background: #f5ede3; font-weight: 800;">
+            <td colspan="3"><strong>TOTAL GENERAL DEL MES</strong></td>
+            <td class="mono"><strong>${escapeHtml(data.totalesGenerales.turnosCerrados)}</strong></td>
+            <td class="mono"><strong>${escapeHtml(data.totalesGenerales.turnosPendientes)}</strong></td>
+            <td class="mono"><strong>${escapeHtml(data.totalesGenerales.totalTrabajadoHHMM)}</strong></td>
+            <td class="mono" style="color: var(--green-main);"><strong>${escapeHtml(data.totalesGenerales.horasNormalesHHMM)}</strong></td>
+            <td class="mono" style="color: #b45309;"><strong>${escapeHtml(data.totalesGenerales.horasExtrasHHMM)}</strong></td>
+          </tr>
+        `;
+        resBody.innerHTML = rowsHtml + footHtml;
+      }
+
+      const listaDetalle = data.fichajesEnriquecidos;
+      if (listaDetalle.length === 0) {
+        detBody.innerHTML = `<tr><td colspan="8" class="empty-state">No hay fichajes registrados en este mes.</td></tr>`;
+      } else {
+        detBody.innerHTML = listaDetalle.map(f => {
+          const isPendiente = f.estado !== "CERRADO";
+          return `
+            <tr>
+              <td class="mono">${escapeHtml(formatDisplayDateAR(f.fecha))}</td>
+              <td><strong>${escapeHtml(f.nombre)}</strong> <span class="mono" style="color:var(--text-muted);">(@${escapeHtml(f.usuario)})</span></td>
+              <td class="mono">${escapeHtml(f.ingreso || "—")}</td>
+              <td class="mono">${escapeHtml(isPendiente ? "Pendiente" : (f.egreso || "—"))}</td>
+              <td class="mono"><strong>${isPendiente ? "Pendiente" : escapeHtml(f.totalHHMM)}</strong></td>
+              <td class="mono" style="color: var(--green-main); font-weight: 700;">${isPendiente ? "Pendiente" : escapeHtml(f.normalesHHMM)}</td>
+              <td class="mono" style="color: ${!isPendiente && f.minutosExtras > 0 ? '#b45309' : 'var(--text-muted)'}; font-weight: 700;">
+                ${isPendiente ? "Pendiente" : escapeHtml(f.extrasHHMM)}
+              </td>
+              <td>
+                <span class="pill ${isPendiente ? "pill-open" : "pill-closed"}">
+                  ${isPendiente ? "⏳ PENDIENTE" : "✓ CERRADO"}
+                </span>
+              </td>
+            </tr>
+          `;
+        }).join("");
+      }
+    }
+
     /* ========================================================================
-       VISTA 4: REPORTE Y DESCARGA CSV PARA EXCEL ARGENTINO
+       VISTA 4: REPORTE Y DESCARGA CSV / PDF MENSUAL
        ======================================================================== */
     async function loadReporte() {
       const desde = document.getElementById("repDesde").value;
@@ -3236,60 +3817,18 @@
         listaEmp.map(u => `<option value="${escapeHtml(u.usuario)}">${escapeHtml(u.nombre)} (@${escapeHtml(u.usuario)})</option>`).join("");
       selectEmp.value = currentVal;
 
-      document.getElementById("repTotalHHMM").textContent = `${res.totalGeneralHHMM || "00:00"} hs`;
-      document.getElementById("repTotalDec").textContent = `${formatDecimalAR(res.totalGeneralDecimal)} h`;
-      document.getElementById("repTotalTurnos").textContent = String(res.cantidadTurnos || 0);
+      const calc = calcularHorasPorDiaYEmpleado(res.fichajes || [], listaEmp);
 
-      const resumen = Array.isArray(res.resumenPorEmpleado) ? res.resumenPorEmpleado : [];
-      const fichajes = Array.isArray(res.fichajes) ? res.fichajes : [];
+      document.getElementById("repTotalHHMM").textContent = `${calc.totalesGenerales.totalTrabajadoHHMM} hs`;
+      document.getElementById("repTotalDec").textContent = `${formatDecimalAR(calc.totalesGenerales.horasDecimal)} h`;
+      document.getElementById("repTotalTurnos").textContent = String(calc.fichajesEnriquecidos.length);
 
       state.reporteActual = {
         desde: res.desde,
         hasta: res.hasta,
-        resumenPorEmpleado: resumen,
-        fichajes
+        resumenPorEmpleado: calc.resumenPorEmpleado,
+        fichajes: calc.fichajesEnriquecidos
       };
-
-      const resBody = document.getElementById("repResumenBody");
-      if (resumen.length === 0) {
-        resBody.innerHTML = `<tr><td colspan="6" class="empty-state">No hay horas registradas para el filtro seleccionado.</td></tr>`;
-      } else {
-        resBody.innerHTML = resumen.map(r => `
-          <tr>
-            <td><strong>${escapeHtml(r.nombre)}</strong></td>
-            <td class="mono">${escapeHtml(r.usuario)}</td>
-            <td class="mono">${escapeHtml(r.turnosCerrados)}</td>
-            <td class="mono">${escapeHtml(r.turnosAbiertos)}</td>
-            <td class="mono"><strong>${escapeHtml(r.duracionHHMM)} hs</strong></td>
-            <td class="mono"><strong>${formatDecimalAR(r.horasDecimal)} h</strong></td>
-          </tr>
-        `).join("");
-      }
-
-      const detBody = document.getElementById("repDetalleBody");
-      if (fichajes.length === 0) {
-        detBody.innerHTML = `<tr><td colspan="8" class="empty-state">No hay fichajes en este período.</td></tr>`;
-      } else {
-        detBody.innerHTML = fichajes.map(f => {
-          const isAbierto = f.estado === "ABIERTO";
-          return `
-            <tr>
-              <td class="mono">${escapeHtml(formatDisplayDateAR(f.fecha))}</td>
-              <td><strong>${escapeHtml(f.nombre)}</strong></td>
-              <td class="mono">${escapeHtml(f.usuario)}</td>
-              <td class="mono">${escapeHtml(f.ingreso || "—")}</td>
-              <td class="mono">${escapeHtml(f.egreso || "—")}</td>
-              <td class="mono">${isAbierto ? "En curso" : escapeHtml(f.duracion) + " hs"}</td>
-              <td class="mono">${isAbierto ? "0,00" : formatDecimalAR(f.horasDecimal)}</td>
-              <td>
-                <span class="pill ${isAbierto ? "pill-open" : "pill-closed"}">
-                  ${isAbierto ? "● ABIERTO" : "✓ CERRADO"}
-                </span>
-              </td>
-            </tr>
-          `;
-        }).join("");
-      }
     }
 
     function descargarReporteCSV() {
@@ -3308,34 +3847,37 @@
       lines.push(["REPORTE DE FICHAJES - EL PATRÓN", `Desde: ${desde}`, `Hasta: ${hasta}`].map(sanitizeCsvCell).join(";"));
       lines.push("");
 
-      lines.push(["RESUMEN POR EMPLEADO"].map(sanitizeCsvCell).join(";"));
-      lines.push(["Empleado", "Usuario", "Turnos Cerrados", "Turnos Abiertos", "Duracion Total (hh:mm)", "Horas Totales (decimal)"].map(sanitizeCsvCell).join(";"));
+      lines.push(["RESUMEN POR EMPLEADO (HH:MM)"].map(sanitizeCsvCell).join(";"));
+      lines.push(["Empleado", "Usuario", "Jornada Diaria", "Turnos Cerrados", "Pendientes", "Total Trabajado (HH:MM)", "Horas Normales (HH:MM)", "Horas Extra (HH:MM)"].map(sanitizeCsvCell).join(";"));
       resumenPorEmpleado.forEach(r => {
         lines.push([
           sanitizeCsvCell(r.nombre),
           sanitizeCsvCell(r.usuario),
+          sanitizeCsvCell(r.jornadaHHMM),
           r.turnosCerrados,
           r.turnosAbiertos,
-          sanitizeCsvCell(r.duracionHHMM),
-          formatDecimalAR(r.horasDecimal)
+          sanitizeCsvCell(r.totalTrabajadoHHMM),
+          sanitizeCsvCell(r.horasNormalesHHMM),
+          sanitizeCsvCell(r.horasExtrasHHMM)
         ].join(";"));
       });
 
       lines.push("");
 
       lines.push(["DETALLE DE FICHAJES"].map(sanitizeCsvCell).join(";"));
-      lines.push(["ID", "Fecha", "Usuario", "Nombre", "Ingreso", "Egreso", "Duracion (hh:mm)", "Horas decimal", "Estado"].map(sanitizeCsvCell).join(";"));
+      lines.push(["Fecha", "Usuario", "Nombre", "Ingreso", "Egreso", "Total Trabajado (HH:MM)", "Horas Normales (HH:MM)", "Horas Extra (HH:MM)", "Estado"].map(sanitizeCsvCell).join(";"));
       fichajes.forEach(f => {
+        const isPend = f.estado !== "CERRADO";
         lines.push([
-          sanitizeCsvCell(f.id),
           sanitizeCsvCell(f.fecha),
           sanitizeCsvCell(f.usuario),
           sanitizeCsvCell(f.nombre),
           sanitizeCsvCell(f.ingreso || ""),
-          sanitizeCsvCell(f.egreso || ""),
-          sanitizeCsvCell(f.duracion || "00:00"),
-          formatDecimalAR(f.horasDecimal),
-          sanitizeCsvCell(f.estado)
+          sanitizeCsvCell(isPend ? "Pendiente" : (f.egreso || "")),
+          sanitizeCsvCell(isPend ? "Pendiente" : f.totalHHMM),
+          sanitizeCsvCell(isPend ? "Pendiente" : f.normalesHHMM),
+          sanitizeCsvCell(isPend ? "Pendiente" : f.extrasHHMM),
+          sanitizeCsvCell(isPend ? "PENDIENTE" : "CERRADO")
         ].join(";"));
       });
 
@@ -3364,163 +3906,100 @@
 
     async function descargarPDFMensual() {
       const btn = document.getElementById("btnDescargarPDFMes");
-      const ymInput = document.getElementById("pdfMesInput");
-      const empSelect = document.getElementById("pdfEmpleadoSelect");
-
-      const ym = (ymInput && ymInput.value) ? ymInput.value : getCordobaParts(new Date()).ym;
-      const usuarioFiltro = (empSelect && empSelect.value) ? empSelect.value : "todos";
-
-      const [yearNum, monthNum] = ym.split("-").map(Number);
-      const lastDay = new Date(yearNum, monthNum, 0).getDate();
-      const desde = `${ym}-01`;
-      const hasta = `${ym}-${pad2(lastDay)}`;
-      const mesNombre = formatMonthNameES(ym);
-
       if (btn) {
         btn.disabled = true;
         btn.textContent = "⏳ Generando PDF...";
       }
 
       try {
-        const res = await apiCall("reporte", { desde, hasta, usuario: usuarioFiltro });
-        if (!res.ok) {
-          showToast(res.error || "No se pudo obtener el reporte del mes.", "error");
+        const data = await obtenerDatosCalculadosDelMes();
+        if (!data.ok) {
+          showToast(data.error || "No se pudo obtener el reporte del mes.", "error");
           return;
         }
 
-        const deletedSet = new Set(getLocallyDeletedUsers());
-        const empleadosBase = (Array.isArray(res.empleadosLista) ? res.empleadosLista : (state.empleadosCache || []))
-          .filter(u => !deletedSet.has(String(u.usuario || "").toLowerCase()));
-        const rawResumen = (Array.isArray(res.resumenPorEmpleado) ? res.resumenPorEmpleado : [])
-          .filter(r => !deletedSet.has(String(r.usuario || "").toLowerCase()));
-        const fichajes = (Array.isArray(res.fichajes) ? res.fichajes : [])
-          .filter(f => !deletedSet.has(String(f.usuario || "").toLowerCase()));
+        // También actualizamos las tablas en pantalla para que coincidan con el PDF
+        cargarResumenMensualEnPantalla();
 
-        // Combinar todos los empleados con su resumen mensual para que aparezcan todos en la planilla
-        const mapResumen = {};
-        rawResumen.forEach(r => {
-          mapResumen[r.usuario] = r;
-        });
-
-        let filasResumen = [];
-        if (usuarioFiltro === "todos") {
-          empleadosBase.forEach(emp => {
-            if (mapResumen[emp.usuario]) {
-              filasResumen.push(mapResumen[emp.usuario]);
-            } else {
-              filasResumen.push({
-                usuario: emp.usuario,
-                nombre: emp.nombre,
-                turnosCerrados: 0,
-                turnosAbiertos: 0,
-                duracionHHMM: "00:00",
-                horasDecimal: 0
-              });
-            }
-          });
-          // Agregar cualquier otro usuario que tenga fichajes aunque no estuviera en empleadosBase
-          rawResumen.forEach(r => {
-            if (!filasResumen.some(item => item.usuario === r.usuario)) {
-              filasResumen.push(r);
-            }
-          });
-        } else {
-          if (rawResumen.length > 0) {
-            filasResumen = rawResumen;
-          } else {
-            const empObj = empleadosBase.find(e => e.usuario === usuarioFiltro);
-            filasResumen = [{
-              usuario: usuarioFiltro,
-              nombre: empObj ? empObj.nombre : usuarioFiltro,
-              turnosCerrados: 0,
-              turnosAbiertos: 0,
-              duracionHHMM: "00:00",
-              horasDecimal: 0
-            }];
-          }
-        }
-
-        filasResumen.sort((a, b) => (b.horasDecimal || 0) - (a.horasDecimal || 0));
-
-        const totalHHMM = res.totalGeneralHHMM || "00:00";
-        const totalDec = formatDecimalAR(res.totalGeneralDecimal || 0);
-        const totalTurnosCerrados = filasResumen.reduce((acc, r) => acc + (r.turnosCerrados || 0), 0);
-        const totalTurnosAbiertos = filasResumen.reduce((acc, r) => acc + (r.turnosAbiertos || 0), 0);
+        const { ym, desde, hasta, mesNombre, usuarioFiltro, resumenPorEmpleado, fichajesEnriquecidos, totalesGenerales } = data;
         const nowParts = getCordobaParts(new Date());
         const fechaEmision = `${formatDisplayDateAR(nowParts.ymd)} ${nowParts.hm} hs`;
 
-        // Generar archivo PDF directo con jsPDF + autoTable
         if (window.jspdf && window.jspdf.jsPDF) {
           const { jsPDF } = window.jspdf;
           const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
 
-          // Encabezado con estética de El Patrón
+          // Encabezado El Patrón
           doc.setFillColor(26, 16, 10); // #1a100a
-          doc.rect(0, 0, 210, 34, "F");
+          doc.rect(0, 0, 210, 35, "F");
           doc.setFillColor(217, 160, 95); // #d9a05f
-          doc.rect(0, 34, 210, 2.2, "F");
+          doc.rect(0, 35, 210, 2.2, "F");
 
           doc.setTextColor(217, 160, 95);
           doc.setFont("helvetica", "bold");
-          doc.setFontSize(18);
-          doc.text("EL PATRÓN · CONTROL DE HORARIOS", 14, 15);
+          doc.setFontSize(17.5);
+          doc.text("EL PATRÓN · LIQUIDACIÓN MENSUAL DE HORAS", 14, 14.5);
 
           doc.setTextColor(255, 255, 255);
           doc.setFont("helvetica", "normal");
           doc.setFontSize(11);
-          doc.text(`Reporte Mensual de Horas Trabajadas — Período: ${mesNombre}`, 14, 23);
+          doc.text(`Período: ${mesNombre} (${formatDisplayDateAR(desde)} al ${formatDisplayDateAR(hasta)})`, 14, 22.5);
 
-          doc.setFontSize(9);
+          doc.setFontSize(8.8);
           doc.setTextColor(235, 208, 175);
           doc.text(
-            `Rango: ${formatDisplayDateAR(desde)} al ${formatDisplayDateAR(hasta)}   |   Emitido: ${fechaEmision} (Córdoba, AR)`,
+            `Total Trabajado: ${totalesGenerales.totalTrabajadoHHMM}  |  Normales: ${totalesGenerales.horasNormalesHHMM}  |  Extras a Liquidar: ${totalesGenerales.horasExtrasHHMM}  |  Emitido: ${fechaEmision}`,
             14,
-            29.5
+            30
           );
 
-          // Resumen global del mes
+          // Tabla 1: Resumen Mensual por Empleado (Todos en formato HH:MM)
           doc.setTextColor(31, 20, 13);
           doc.setFont("helvetica", "bold");
-          doc.setFontSize(12);
-          doc.text("1. Horas trabajadas por empleado en el mes", 14, 46);
+          doc.setFontSize(11.5);
+          doc.text("1. Resumen mensual por empleado (Total trabajado, Normales y Extras en HH:MM)", 14, 46);
 
-          const bodyResumen = filasResumen.map(r => [
+          const bodyResumen = resumenPorEmpleado.map(r => [
             r.nombre || r.usuario,
             `@${r.usuario}`,
+            `${r.jornadaHHMM} (${r.jornadaHoras}h)`,
             String(r.turnosCerrados || 0),
-            String(r.turnosAbiertos || 0),
-            `${r.duracionHHMM || "00:00"} hs`,
-            `${formatDecimalAR(r.horasDecimal)} h`
+            r.turnosAbiertos > 0 ? `${r.turnosAbiertos} pend.` : "0",
+            r.totalTrabajadoHHMM,
+            r.horasNormalesHHMM,
+            r.horasExtrasHHMM
           ]);
 
           doc.autoTable({
             startY: 50,
-            head: [["Empleado", "Usuario", "Turnos Cerrados", "Turnos Abiertos", "Horas (HH:MM)", "Horas (Decimal)"]],
+            head: [["Empleado", "Usuario", "Jornada", "Cerrados", "Pendientes", "Total Trabajado", "Horas Normales", "Horas Extra"]],
             body: bodyResumen,
             foot: [[
               "TOTAL GENERAL DEL MES",
               "",
-              String(totalTurnosCerrados),
-              String(totalTurnosAbiertos),
-              `${totalHHMM} hs`,
-              `${totalDec} h`
+              "",
+              String(totalesGenerales.turnosCerrados),
+              String(totalesGenerales.turnosPendientes),
+              totalesGenerales.totalTrabajadoHHMM,
+              totalesGenerales.horasNormalesHHMM,
+              totalesGenerales.horasExtrasHHMM
             ]],
             theme: "grid",
             headStyles: {
               fillColor: [26, 16, 10],
               textColor: [217, 160, 95],
               fontStyle: "bold",
-              fontSize: 9.5
+              fontSize: 8.8
             },
             footStyles: {
               fillColor: [148, 101, 63],
               textColor: [255, 255, 255],
               fontStyle: "bold",
-              fontSize: 9.5
+              fontSize: 9
             },
             styles: {
-              fontSize: 9.5,
-              cellPadding: 3.2,
+              fontSize: 8.8,
+              cellPadding: 2.8,
               textColor: [31, 20, 13]
             },
             alternateRowStyles: {
@@ -3529,13 +4008,15 @@
             columnStyles: {
               2: { halign: "center" },
               3: { halign: "center" },
-              4: { halign: "right", fontStyle: "bold" },
-              5: { halign: "right", fontStyle: "bold" }
+              4: { halign: "center" },
+              5: { halign: "right", fontStyle: "bold" },
+              6: { halign: "right", fontStyle: "bold" },
+              7: { halign: "right", fontStyle: "bold" }
             }
           });
 
-          // Tabla 2: Detalle de fichajes del mes
-          let nextY = (doc.lastAutoTable && doc.lastAutoTable.finalY) ? doc.lastAutoTable.finalY + 12 : 110;
+          // Tabla 2: Detalle por Empleado y Día (Fecha, Ingreso, Egreso, Total trabajado, Normales, Extras, Estado)
+          let nextY = (doc.lastAutoTable && doc.lastAutoTable.finalY) ? doc.lastAutoTable.finalY + 11 : 110;
           if (nextY > 250) {
             doc.addPage();
             nextY = 20;
@@ -3543,48 +4024,53 @@
 
           doc.setTextColor(31, 20, 13);
           doc.setFont("helvetica", "bold");
-          doc.setFontSize(12);
-          doc.text(`2. Detalle de fichajes registrados (${fichajes.length})`, 14, nextY);
+          doc.setFontSize(11.5);
+          doc.text(`2. Detalle por empleado y por día (${fichajesEnriquecidos.length} registros)`, 14, nextY);
 
-          if (fichajes.length === 0) {
+          if (fichajesEnriquecidos.length === 0) {
             doc.setFont("helvetica", "normal");
-            doc.setFontSize(10);
+            doc.setFontSize(9.5);
             doc.setTextColor(110, 90, 75);
-            doc.text("No hay fichajes individuales registrados en este mes.", 14, nextY + 8);
+            doc.text("No hay fichajes registrados en este mes.", 14, nextY + 7);
           } else {
-            const bodyDetalle = fichajes.map(f => [
-              formatDisplayDateAR(f.fecha),
-              f.nombre || f.usuario,
-              f.ingreso || "—",
-              f.egreso || "—",
-              f.estado === "ABIERTO" ? "En curso" : `${f.duracion || "00:00"} hs`,
-              f.estado === "ABIERTO" ? "0,00 h" : `${formatDecimalAR(f.horasDecimal)} h`,
-              f.estado
-            ]);
+            const bodyDetalle = fichajesEnriquecidos.map(f => {
+              const isPend = f.estado !== "CERRADO";
+              return [
+                formatDisplayDateAR(f.fecha),
+                f.nombre || f.usuario,
+                f.ingreso || "—",
+                isPend ? "Pendiente" : (f.egreso || "—"),
+                isPend ? "Pendiente" : f.totalHHMM,
+                isPend ? "Pendiente" : f.normalesHHMM,
+                isPend ? "Pendiente" : f.extrasHHMM,
+                isPend ? "PENDIENTE" : "CERRADO"
+              ];
+            });
 
             doc.autoTable({
               startY: nextY + 4,
-              head: [["Fecha", "Empleado", "Ingreso", "Egreso", "Duración", "Horas Decimal", "Estado"]],
+              head: [["Fecha", "Empleado", "Ingreso", "Egreso", "Total trabajado", "Horas normales", "Horas extra", "Estado"]],
               body: bodyDetalle,
               theme: "striped",
               headStyles: {
                 fillColor: [124, 81, 48],
                 textColor: [255, 255, 255],
                 fontStyle: "bold",
-                fontSize: 9
+                fontSize: 8.6
               },
               styles: {
-                fontSize: 8.8,
-                cellPadding: 2.8,
+                fontSize: 8.5,
+                cellPadding: 2.5,
                 textColor: [31, 20, 13]
               },
               columnStyles: {
                 0: { halign: "center" },
                 2: { halign: "center" },
                 3: { halign: "center" },
-                4: { halign: "right" },
+                4: { halign: "right", fontStyle: "bold" },
                 5: { halign: "right" },
-                6: { halign: "center" }
+                6: { halign: "right", fontStyle: "bold" },
+                7: { halign: "center" }
               }
             });
           }
@@ -3595,12 +4081,11 @@
           return;
         }
 
-        // Fallback de impresión a PDF si no hubiera internet para cargar jsPDF
         window.print();
       } finally {
         if (btn) {
           btn.disabled = false;
-          btn.textContent = "📄 Descargar PDF de Horas por Mes";
+          btn.textContent = "📄 Descargar PDF Mensual";
         }
       }
     }
@@ -3716,8 +4201,12 @@
         loadMisHoras();
       });
 
-      // 7. Crear Empleado (Con actualización optimista instantánea)
-      document.getElementById("btnRefreshEmpleados").addEventListener("click", () => loadEmpleados({ forceSpinner: false }));
+      // 7. Crear Empleado (Con jornada diaria configurable)
+      document.getElementById("btnRefreshEmpleados").addEventListener("click", () => {
+        loadEmpleados({ forceSpinner: false });
+        cargarResumenMensualEnPantalla();
+      });
+
       document.getElementById("crearEmpleadoForm").addEventListener("submit", async (e) => {
         e.preventDefault();
         setAlert("crearEmpleadoAlert", "");
@@ -3725,24 +4214,26 @@
         const usuario = document.getElementById("empUsuario").value.trim().toLowerCase();
         const pin = document.getElementById("empPin").value.trim();
         const rol = document.getElementById("empRol").value;
+        const jornadaHoras = Number(document.getElementById("empJornada").value) || DEFAULT_JORNADA_HORAS;
 
         removeLocallyDeletedUser(usuario);
+        setLocalJornadaForUser(usuario, jornadaHoras);
 
-        // Actualización optimista en la tabla
         const prevList = state.empleadosCache ? [...state.empleadosCache] : [];
         if (state.empleadosCache && !state.empleadosCache.some(u => u.usuario === usuario)) {
           renderEmpleadosUI(
-            [...state.empleadosCache, { usuario, nombre, rol, activo: true, enTurno: false, turnoAbierto: null }],
+            [...state.empleadosCache, { usuario, nombre, rol, jornadaHoras, activo: true, enTurno: false, turnoAbierto: null }],
             state.adentroAhoraCache
           );
         }
         document.getElementById("crearEmpleadoForm").reset();
+        document.getElementById("empJornada").value = "8";
         showToast(`Creando empleado "${nombre}"...`, "info");
 
         const btn = document.getElementById("btnCrearEmpleadoSubmit");
         btn.disabled = true;
         try {
-          const res = await apiCall("crearEmpleado", { nombre, usuario, pin, rol });
+          const res = await apiCall("crearEmpleado", { nombre, usuario, pin, rol, jornadaHoras });
           if (res.ok) {
             setAlert("crearEmpleadoAlert", res.mensaje, "success");
             showToast(res.mensaje, "success");
@@ -3751,6 +4242,7 @@
             } else {
               loadEmpleados({ silent: true });
             }
+            cargarResumenMensualEnPantalla();
           } else {
             renderEmpleadosUI(prevList, state.adentroAhoraCache);
             setAlert("crearEmpleadoAlert", res.error || "No se pudo crear el empleado.", "error");
@@ -3760,7 +4252,7 @@
         }
       });
 
-      // 8. Delegación de acciones en Empleados (Habilitar/Deshabilitar, Eliminar, Reset PIN, Forzar Egreso)
+      // 8. Delegación de acciones en Empleados (Jornada, Habilitar/Deshabilitar, Eliminar, Reset PIN, Forzar Egreso)
       document.getElementById("view-empleados").addEventListener("click", async (e) => {
         const btn = e.target.closest("button[data-action]");
         if (!btn) return;
@@ -3768,8 +4260,14 @@
         const usuario = btn.dataset.usuario;
         const nombre = btn.dataset.nombre || usuario;
 
-        if (action === "toggle-emp") {
-          // Cambio visual instantáneo (0ms)
+        if (action === "edit-jornada") {
+          const jActual = btn.dataset.jornada || getJornadaHorasUsuario(usuario);
+          document.getElementById("jornadaEmpleadoUsuario").value = usuario;
+          document.getElementById("jornadaEmpleadoInput").value = jActual;
+          document.getElementById("jornadaEmpleadoDesc").textContent =
+            `Configurá las horas de jornada diaria normal para "${nombre}" (@${usuario}). Lo que supere ese tope en un mismo día se computará como hora extra.`;
+          document.getElementById("modalJornadaEmpleado").classList.add("open");
+        } else if (action === "toggle-emp") {
           if (state.empleadosCache) {
             const updated = state.empleadosCache.map(emp =>
               emp.usuario === usuario ? { ...emp, activo: !emp.activo } : emp
@@ -3806,7 +4304,31 @@
         }
       });
 
-      // Modal Eliminar Empleado (Confirmación + Eliminación instantánea)
+      // Modal Configurar Jornada Diaria
+      document.getElementById("btnCancelJornadaEmpleado").addEventListener("click", () => {
+        document.getElementById("modalJornadaEmpleado").classList.remove("open");
+      });
+
+      document.getElementById("jornadaEmpleadoForm").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const usuario = document.getElementById("jornadaEmpleadoUsuario").value;
+        const jornadaHoras = Number(document.getElementById("jornadaEmpleadoInput").value) || DEFAULT_JORNADA_HORAS;
+        document.getElementById("modalJornadaEmpleado").classList.remove("open");
+
+        setLocalJornadaForUser(usuario, jornadaHoras);
+        if (state.empleadosCache) {
+          renderEmpleadosUI(
+            state.empleadosCache.map(emp => emp.usuario === usuario ? { ...emp, jornadaHoras } : emp),
+            state.adentroAhoraCache
+          );
+        }
+        cargarResumenMensualEnPantalla();
+        showToast(`Jornada de @${usuario} configurada en ${jornadaHoras} h (${minutesToHHMMLocal(Math.round(jornadaHoras * 60))}).`, "success");
+
+        apiCall("cambiarJornada", { usuario, jornadaHoras });
+      });
+
+      // Modal Eliminar Empleado
       document.getElementById("btnCancelEliminarEmpleado").addEventListener("click", () => {
         document.getElementById("modalEliminarEmpleado").classList.remove("open");
       });
@@ -3818,7 +4340,6 @@
 
         const targetEmp = (state.empleadosCache || []).find(emp => emp.usuario === usuario);
 
-        // Registrar eliminado y actualizar tabla en 0ms
         addLocallyDeletedUser(usuario);
         if (state.empleadosCache) {
           renderEmpleadosUI(
@@ -3826,6 +4347,7 @@
             (state.adentroAhoraCache || []).filter(a => a.usuario !== usuario)
           );
         }
+        cargarResumenMensualEnPantalla();
         showToast(`Usuario @${usuario} eliminado correctamente.`, "success");
 
         const res = await apiCall("eliminarEmpleado", { usuario });
@@ -3835,8 +4357,6 @@
             renderEmpleadosUI(res.empleados, res.adentroAhora);
           }
         } else if (res.code === "UNKNOWN_ACTION") {
-          // Si la versión desplegada en Apps Script todavía no fue actualizada con eliminarEmpleado,
-          // además de ocultarlo en la interfaz, lo deshabilitamos en la hoja si estaba activo.
           if (targetEmp && targetEmp.activo) {
             apiCall("toggleEmpleado", { usuario });
           }
@@ -3873,7 +4393,6 @@
         const hora = document.getElementById("forzarEgresoHora").value.trim();
         document.getElementById("modalForzarEgreso").classList.remove("open");
 
-        // Actualización optimista (0ms)
         if (state.empleadosCache) {
           renderEmpleadosUI(
             state.empleadosCache.map(emp => emp.usuario === usuario ? { ...emp, enTurno: false, turnoAbierto: null } : emp),
@@ -3889,6 +4408,7 @@
           } else {
             loadEmpleados({ silent: true });
           }
+          cargarResumenMensualEnPantalla();
           if (state.usuario && state.usuario.usuario === usuario) {
             loadEstadoFichaje();
           }
@@ -3905,6 +4425,9 @@
       });
       document.getElementById("btnDescargarCSV").addEventListener("click", descargarReporteCSV);
       document.getElementById("btnDescargarPDFMes").addEventListener("click", descargarPDFMensual);
+      document.getElementById("btnVerResumenMes").addEventListener("click", cargarResumenMensualEnPantalla);
+      document.getElementById("pdfMesInput").addEventListener("change", cargarResumenMensualEnPantalla);
+      document.getElementById("pdfEmpleadoSelect").addEventListener("change", cargarResumenMensualEnPantalla);
 
       // 10. Mi cuenta (Cambiar propio PIN)
       document.getElementById("cambiarPinForm").addEventListener("submit", async (e) => {
