@@ -4046,26 +4046,26 @@
 
           doc.setTextColor(217, 160, 95);
           doc.setFont("helvetica", "bold");
-          doc.setFontSize(17);
-          doc.text("EL PATRÓN · RESTAURANTE", textLeftX, 14);
+          doc.setFontSize(15.5);
+          doc.text("EL PATRÓN · RESTAURANTE", textLeftX, 13.5);
 
           doc.setTextColor(255, 255, 255);
           doc.setFont("helvetica", "bold");
-          doc.setFontSize(11);
-          doc.text("PLANILLA MENSUAL DE HORAS TRABAJADAS Y LIQUIDACIÓN", textLeftX, 21);
+          doc.setFontSize(9.8);
+          doc.text("REPORTE MENSUAL DE HORAS Y LIQUIDACIÓN", textLeftX, 20.5);
 
           doc.setFont("helvetica", "normal");
-          doc.setFontSize(8.3);
+          doc.setFontSize(8);
           doc.setTextColor(235, 208, 175);
           doc.text(
-            "Cálculo exacto en horas y minutos (HH:MM) · Las horas extra diarias no se compensan con días más cortos",
+            "Cálculo exacto en HH:MM y h/min · Extras diarias sin compensación",
             textLeftX,
-            27.5
+            27
           );
           doc.text(
-            `Emitido el ${fechaEmision} (Zona horaria: Córdoba, Argentina)`,
+            `Emitido el ${fechaEmision} (Córdoba, AR)`,
             textLeftX,
-            33
+            32.5
           );
 
           // Recuadro derecho de Período
@@ -4080,7 +4080,7 @@
           doc.text("PERÍODO LIQUIDADO", 173, 12, { align: "center" });
 
           doc.setTextColor(255, 255, 255);
-          doc.setFontSize(11.5);
+          doc.setFontSize(11);
           doc.text(mesNombre.toUpperCase(), 173, 19, { align: "center" });
 
           doc.setTextColor(235, 208, 175);
@@ -4140,7 +4140,6 @@
             doc.setLineWidth(0.4);
             doc.roundedRect(x, cardY, cardW, cardH, 2.5, 2.5, "FD");
 
-            // Franja superior de color en la tarjeta
             doc.setFillColor(...k.border);
             doc.rect(x, cardY, cardW, 1.8, "F");
 
@@ -4172,7 +4171,7 @@
             `${r.nombre || r.usuario}\n(@${r.usuario})`,
             `${r.jornadaHHMM} hs\n(${r.jornadaHoras} h diarias)`,
             `${r.diasTrabajados || 0} día(s)\n${r.turnosCerrados || 0} turno(s)`,
-            r.turnosAbiertos > 0 ? `${r.turnosAbiertos} PENDIENTE` : "Al día (0)",
+            r.turnosAbiertos > 0 ? `${r.turnosAbiertos} pend.` : "Al día (0)",
             `${r.totalTrabajadoHHMM} hs\n(${formatMinutosEnPalabras(r.minutosTrabajados)})`,
             `${r.horasNormalesHHMM} hs\n(${formatMinutosEnPalabras(r.minutosNormales)})`,
             `${r.horasExtrasHHMM} hs\n(${formatMinutosEnPalabras(r.minutosExtras)})`
@@ -4180,19 +4179,20 @@
 
           doc.autoTable({
             startY: 78,
-            margin: { left: 12, right: 12 },
+            margin: { left: 12, right: 12, bottom: 22 },
+            showFoot: "lastPage",
             head: [[
               "Empleado",
               "Jornada Tope",
               "Días / Turnos",
-              "Pendientes",
+              "Turnos\nPend.",
               "Total Trabajado\n(HH:MM y h/min)",
               "Horas Normales\n(HH:MM y h/min)",
               "Horas Extra\n(A Liquidar)"
             ]],
             body: bodyResumen,
             foot: [[
-              "TOTAL GENERAL DEL MES",
+              "TOTAL DEL MES",
               "",
               `${totalesGenerales.turnosCerrados} turnos`,
               totalesGenerales.turnosPendientes > 0 ? `${totalesGenerales.turnosPendientes} pend.` : "0",
@@ -4205,22 +4205,22 @@
               fillColor: [26, 16, 10],
               textColor: [217, 160, 95],
               fontStyle: "bold",
-              fontSize: 8.3,
+              fontSize: 8.2,
               halign: "center",
               valign: "middle",
-              cellPadding: 3
+              cellPadding: 2.8
             },
             footStyles: {
               fillColor: [124, 81, 48],
               textColor: [255, 255, 255],
               fontStyle: "bold",
-              fontSize: 8.5,
+              fontSize: 8.3,
               valign: "middle",
-              cellPadding: 3
+              cellPadding: 2.8
             },
             styles: {
-              fontSize: 8.3,
-              cellPadding: 2.8,
+              fontSize: 8.2,
+              cellPadding: 2.6,
               textColor: [31, 20, 13],
               valign: "middle",
               lineColor: [225, 214, 203],
@@ -4230,13 +4230,13 @@
               fillColor: [252, 249, 245]
             },
             columnStyles: {
-              0: { halign: "left", fontStyle: "bold", cellWidth: 38 },
-              1: { halign: "center", cellWidth: 23 },
+              0: { halign: "left", fontStyle: "bold", cellWidth: 42 },
+              1: { halign: "center", cellWidth: 22 },
               2: { halign: "center", cellWidth: 22 },
-              3: { halign: "center", cellWidth: 21 },
+              3: { halign: "center", cellWidth: 19 },
               4: { halign: "right", fontStyle: "bold", cellWidth: 27 },
               5: { halign: "right", fontStyle: "bold", textColor: [21, 128, 61], cellWidth: 27 },
-              6: { halign: "right", fontStyle: "bold", cellWidth: 28 }
+              6: { halign: "right", fontStyle: "bold", cellWidth: 27 }
             },
             didParseCell: function(hookData) {
               if (hookData.section === "body") {
@@ -4244,8 +4244,8 @@
                 const empRow = resumenPorEmpleado[rowIdx];
                 if (empRow && hookData.column.index === 6) {
                   if (empRow.minutosExtras > 0) {
-                    hookData.cell.styles.fillColor = [254, 243, 199]; // Fondo ámbar suave
-                    hookData.cell.styles.textColor = [146, 64, 14];  // Texto ámbar oscuro
+                    hookData.cell.styles.fillColor = [254, 243, 199];
+                    hookData.cell.styles.textColor = [146, 64, 14];
                   } else {
                     hookData.cell.styles.textColor = [120, 105, 95];
                   }
@@ -4256,8 +4256,12 @@
                   hookData.cell.styles.fontStyle = "bold";
                 }
               }
-              if (hookData.section === "foot" && hookData.column.index >= 4) {
-                hookData.cell.styles.halign = "right";
+              if (hookData.section === "foot") {
+                if (hookData.column.index === 2 || hookData.column.index === 3) {
+                  hookData.cell.styles.halign = "center";
+                } else if (hookData.column.index >= 4) {
+                  hookData.cell.styles.halign = "right";
+                }
               }
             }
           });
@@ -4267,7 +4271,7 @@
           // ==================================================================
           let currentY = (doc.lastAutoTable && doc.lastAutoTable.finalY) ? doc.lastAutoTable.finalY + 10 : 140;
 
-          if (currentY > 245) {
+          if (currentY > 225) {
             doc.addPage();
             currentY = 18;
           }
@@ -4285,7 +4289,6 @@
             doc.text("No se registraron fichajes en el mes seleccionado.", 12, currentY + 6);
             currentY += 14;
           } else {
-            // Agrupar fichajes por empleado siguiendo el orden de resumenPorEmpleado
             const empleadosConFichajes = resumenPorEmpleado.filter(emp =>
               fichajesEnriquecidos.some(f => f.usuario === emp.usuario)
             );
@@ -4295,36 +4298,44 @@
                 .filter(f => f.usuario === emp.usuario)
                 .sort((a, b) => (a.fecha > b.fecha ? 1 : a.fecha < b.fecha ? -1 : (a.ingresoTS || 0) - (b.ingresoTS || 0)));
 
-              if (currentY > 242) {
+              // Asegurar espacio suficiente para el encabezado del empleado + tabla sin cortar contra el pie
+              if (currentY > 225) {
                 doc.addPage();
                 currentY = 18;
               }
 
-              // Encabezado de ficha individual del empleado
+              // Encabezado de ficha individual del empleado en DOS RENGLONES (sin superposición)
               doc.setFillColor(244, 235, 226); // #f4ebe2
               doc.setDrawColor(185, 128, 70);
               doc.setLineWidth(0.35);
-              doc.roundedRect(12, currentY + 2, 186, 10.5, 2, 2, "FD");
+              doc.roundedRect(12, currentY + 2, 186, 14.5, 2, 2, "FD");
               doc.setFillColor(26, 16, 10);
-              doc.rect(12, currentY + 2, 3, 10.5, "F");
+              doc.rect(12, currentY + 2, 3.2, 14.5, "F");
 
+              // Renglón 1: Nombre a la izquierda, Jornada a la derecha
               doc.setFont("helvetica", "bold");
-              doc.setFontSize(9.2);
+              doc.setFontSize(9.5);
               doc.setTextColor(26, 16, 10);
-              doc.text(
-                `${emp.nombre} (@${emp.usuario})  —  Jornada diaria: ${emp.jornadaHoras} h (${emp.jornadaHHMM} hs)`,
-                18,
-                currentY + 8.6
-              );
+              doc.text(`${emp.nombre} (@${emp.usuario})`, 18, currentY + 7.5);
 
-              doc.setFont("helvetica", "bold");
+              doc.setFont("helvetica", "normal");
               doc.setFontSize(8.2);
               doc.setTextColor(91, 61, 34);
               doc.text(
-                `Total: ${emp.totalTrabajadoHHMM} hs (${formatMinutosEnPalabras(emp.minutosTrabajados)})  |  Normales: ${emp.horasNormalesHHMM} hs  |  Extras: ${emp.horasExtrasHHMM} hs`,
-                195,
-                currentY + 8.6,
+                `Jornada diaria configurada: ${emp.jornadaHoras} h (${emp.jornadaHHMM} hs)`,
+                194,
+                currentY + 7.5,
                 { align: "right" }
+              );
+
+              // Renglón 2: Totales del empleado separados abajo con todo el ancho libre
+              doc.setFont("helvetica", "bold");
+              doc.setFontSize(8);
+              doc.setTextColor(75, 48, 26);
+              doc.text(
+                `Totales del mes:   Trabajado: ${emp.totalTrabajadoHHMM} hs (${formatMinutosEnPalabras(emp.minutosTrabajados)})   ·   Normales: ${emp.horasNormalesHHMM} hs (${formatMinutosEnPalabras(emp.minutosNormales)})   ·   Extras: ${emp.horasExtrasHHMM} hs (${formatMinutosEnPalabras(emp.minutosExtras)})`,
+                18,
+                currentY + 13.5
               );
 
               const bodyTurnosEmp = turnosEmp.map(f => {
@@ -4333,20 +4344,21 @@
                   formatFechaConDiaSemanaAR(f.fecha),
                   f.ingreso ? `${f.ingreso} hs` : "—",
                   isPend ? "Sin salida" : (f.egreso ? `${f.egreso} hs` : "—"),
-                  isPend ? "Pendiente" : `${f.totalHHMM} hs  (${formatMinutosEnPalabras(f.minutosTrabajados)})`,
-                  isPend ? "Pendiente" : `${f.normalesHHMM} hs  (${formatMinutosEnPalabras(f.minutosNormales)})`,
-                  isPend ? "Pendiente" : `${f.extrasHHMM} hs  (${formatMinutosEnPalabras(f.minutosExtras)})`,
+                  isPend ? "Pendiente" : `${f.totalHHMM} hs (${formatMinutosEnPalabras(f.minutosTrabajados)})`,
+                  isPend ? "Pendiente" : `${f.normalesHHMM} hs (${formatMinutosEnPalabras(f.minutosNormales)})`,
+                  isPend ? "Pendiente" : `${f.extrasHHMM} hs (${formatMinutosEnPalabras(f.minutosExtras)})`,
                   isPend ? "PENDIENTE" : "CERRADO"
                 ];
               });
 
               doc.autoTable({
-                startY: currentY + 14,
-                margin: { left: 12, right: 12 },
+                startY: currentY + 18,
+                margin: { left: 12, right: 12, bottom: 22 },
+                showFoot: "lastPage",
                 head: [[
                   "Día y Fecha",
-                  "Hora Ingreso",
-                  "Hora Egreso",
+                  "Ingreso",
+                  "Egreso",
                   "Total Trabajado (HH:MM · h/min)",
                   "Horas Normales (HH:MM · h/min)",
                   "Horas Extra (HH:MM · h/min)",
@@ -4354,13 +4366,13 @@
                 ]],
                 body: bodyTurnosEmp,
                 foot: [[
-                  `SUBTOTAL ${emp.nombre.toUpperCase()}`,
+                  "SUBTOTAL",
                   "",
-                  `${emp.turnosCerrados} cerrado(s)`,
+                  `${emp.turnosCerrados} cerr.`,
                   `${emp.totalTrabajadoHHMM} hs (${formatMinutosEnPalabras(emp.minutosTrabajados)})`,
                   `${emp.horasNormalesHHMM} hs (${formatMinutosEnPalabras(emp.minutosNormales)})`,
                   `${emp.horasExtrasHHMM} hs (${formatMinutosEnPalabras(emp.minutosExtras)})`,
-                  emp.turnosAbiertos > 0 ? `${emp.turnosAbiertos} PEND.` : "OK"
+                  emp.turnosAbiertos > 0 ? `${emp.turnosAbiertos} PEND.` : "AL DÍA"
                 ]],
                 theme: "grid",
                 headStyles: {
@@ -4369,18 +4381,20 @@
                   fontStyle: "bold",
                   fontSize: 7.8,
                   halign: "center",
-                  cellPadding: 2.2
+                  valign: "middle",
+                  cellPadding: 2.3
                 },
                 footStyles: {
                   fillColor: [238, 228, 217],
                   textColor: [26, 16, 10],
                   fontStyle: "bold",
                   fontSize: 7.8,
+                  valign: "middle",
                   cellPadding: 2.4
                 },
                 styles: {
-                  fontSize: 7.9,
-                  cellPadding: 2.2,
+                  fontSize: 7.8,
+                  cellPadding: 2.3,
                   textColor: [31, 20, 13],
                   valign: "middle",
                   lineColor: [228, 218, 208],
@@ -4390,13 +4404,13 @@
                   fillColor: [252, 250, 247]
                 },
                 columnStyles: {
-                  0: { halign: "left", fontStyle: "bold", cellWidth: 25 },
-                  1: { halign: "center", cellWidth: 20 },
-                  2: { halign: "center", cellWidth: 20 },
-                  3: { halign: "right", fontStyle: "bold", cellWidth: 36 },
-                  4: { halign: "right", textColor: [21, 128, 61], cellWidth: 36 },
+                  0: { halign: "left", fontStyle: "bold", cellWidth: 26 },
+                  1: { halign: "center", cellWidth: 18 },
+                  2: { halign: "center", cellWidth: 18 },
+                  3: { halign: "right", fontStyle: "bold", cellWidth: 34 },
+                  4: { halign: "right", textColor: [21, 128, 61], cellWidth: 34 },
                   5: { halign: "right", fontStyle: "bold", cellWidth: 33 },
-                  6: { halign: "center", fontStyle: "bold", cellWidth: 16 }
+                  6: { halign: "center", fontStyle: "bold", cellWidth: 23 }
                 },
                 didParseCell: function(hookData) {
                   if (hookData.section === "body") {
@@ -4417,13 +4431,17 @@
                       hookData.cell.styles.textColor = [21, 128, 61];
                     }
                   }
-                  if (hookData.section === "foot" && hookData.column.index >= 3 && hookData.column.index <= 5) {
-                    hookData.cell.styles.halign = "right";
+                  if (hookData.section === "foot") {
+                    if (hookData.column.index === 2 || hookData.column.index === 6) {
+                      hookData.cell.styles.halign = "center";
+                    } else if (hookData.column.index >= 3 && hookData.column.index <= 5) {
+                      hookData.cell.styles.halign = "right";
+                    }
                   }
                 }
               });
 
-              currentY = doc.lastAutoTable.finalY + 6;
+              currentY = doc.lastAutoTable.finalY + 8;
             });
           }
 
